@@ -6,6 +6,11 @@ services:
     name: calendar
     staticPublishPath: .
     buildCommand: ""
+    # 更新したファイルが確実に配信されるようにする
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
 
   # - type: web
   #   runtime: node

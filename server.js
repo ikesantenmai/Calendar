@@ -63,7 +63,10 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, {
       'Content-Type': TYPES[ext] || 'application/octet-stream',
       'Content-Length': stat.size,
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+      /* 画面の更新が確実に届くよう、HTML と JS/CSS は毎回確認させる */
+      'Cache-Control': /\.(html|js|css|json)$/.test(ext)
+        ? 'no-cache'
+        : 'public, max-age=3600',
       'X-Content-Type-Options': 'nosniff'
     });
     if (req.method === 'HEAD') return res.end();

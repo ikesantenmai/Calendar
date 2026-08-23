@@ -135,6 +135,31 @@ body {
 .btn:disabled:hover:not(.btn--primary) { background: var(--panel); }
 .btn--primary:disabled:hover { filter: none; }
 .btn--menu { display: none; }
+
+/* 言語の 2 択（日本語 | English） */
+.langswitch {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.langswitch__opt {
+  padding: 7px 10px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--ink);
+  background: var(--panel);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.langswitch__opt + .langswitch__opt { border-left: 1px solid var(--line-strong); }
+.langswitch__opt:hover { background: rgba(127,127,127,.1); }
+.langswitch__opt.is-on {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
 .menu { display: contents; }   /* 広い画面ではボタンをそのまま並べる */
 
 @media screen and (max-width: 620px), screen and (max-height: 520px) {
@@ -607,6 +632,15 @@ hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
     border: none;
     text-align: left;
     justify-content: flex-start;
+  }
+  .menu .langswitch { width: 100%; margin-bottom: 2px; }
+  .menu .langswitch__opt {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    font-size: 14px;
   }
 
   .layout { padding: 8px; gap: 8px; }

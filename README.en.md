@@ -28,7 +28,8 @@ or put the files on any static host.
 
 The default is **Japanese**, whatever the browser's language setting is.
 
-- To switch: the **English / 日本語** button in the top right (inside the **⋯** menu on a phone).
+- To switch: the **“日本語 | English”** control in the top right (inside the **⋯** menu on a phone).
+  The current language is highlighted, so you can always see which version you are on and switch back.
   The “Calendars” dialog also has a “言語 / Language” setting
 - Your choice is stored in this browser and used the next time you open the app
 - URLs that pick a language:
@@ -36,6 +37,10 @@ The default is **Japanese**, whatever the browser's language setting is.
   - English … `/en/` or `?lang=en`
 
   For example `https://<your-site>.onrender.com/en/` opens the English version.
+
+> If switching seems to do nothing, your browser may be holding an old copy of the JavaScript.
+> The asset URLs carry a version (`?v=…`) and are served with `Cache-Control: no-cache`, so this
+> normally resolves itself; reload the page if it does not.
 
 Switching changes the interface text as well as month, weekday and date formats and the names of
 the Japanese public holidays. Titles of events you already entered or imported are left untouched.

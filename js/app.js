@@ -248,15 +248,25 @@
     });
   }
 
-  /* 言語を切り替えて、画面全体を描き直す */
+  /* 言語を切り替えて、画面全体を描き直す。
+   * 途中の要素が欠けていても描き直しまで到達するよう、個別に守っている。 */
   function applyLang(next, save) {
     I.setLang(next);
     I.applyStatic();
-    $('langSelect').value = I.getLang();
-    $('langBtn').textContent = t('lang.other');   /* 押すと切り替わる先を表示する */
-    $('langBtn').setAttribute('aria-label', t('cal.lang'));
-    document.querySelector('meta[name="apple-mobile-web-app-title"]')
-      .setAttribute('content', t('app.name'));
+
+    var sel = $('langSelect');
+    if (sel) sel.value = I.getLang();
+
+    Array.prototype.forEach.call(document.querySelectorAll('.langswitch__opt'), function (a) {
+      var on = a.getAttribute('data-lang') === I.getLang();
+      a.classList.toggle('is-on', on);
+      if (on) a.setAttribute('aria-current', 'true');
+      else a.removeAttribute('aria-current');
+    });
+
+    var meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (meta) meta.setAttribute('content', t('app.name'));
+
     if (save) {
       S.get().settings.lang = I.getLang();
       S.save();
@@ -920,9 +930,17 @@
       $('newCalName').value = '';
       renderCalsList(); render();
     });
-    $('langBtn').addEventListener('click', function () {
-      applyLang(I.getLang() === 'ja' ? 'en' : 'ja', true);
+    /* 言語の 2 択。リンクとしても機能するので、万一 JavaScript の
+     * 差し替えが効かなくても ?lang= 付きで開き直せる。 */
+    $('langSwitch').addEventListener('click', function (e) {
+      var a = e.target.closest('.langswitch__opt');
+      if (!a) return;
+      e.preventDefault();
+      var next = a.getAttribute('data-lang');
+      if (next === I.getLang()) { toggleMenu(false); return; }
+      applyLang(next, true);
       renderCalsList();
+      toggleMenu(false);
     });
     $('langSelect').addEventListener('change', function (e) {
       applyLang(e.target.value, true);
