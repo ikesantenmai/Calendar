@@ -28,9 +28,14 @@ or put the files on any static host.
 
 The default is **Japanese**, whatever the browser's language setting is.
 
-- To switch: open the “Calendars” dialog → “言語 / Language”
+- To switch: the **English / 日本語** button in the top right (inside the **⋯** menu on a phone).
+  The “Calendars” dialog also has a “言語 / Language” setting
 - Your choice is stored in this browser and used the next time you open the app
-- Adding `?lang=en` or `?lang=ja` to the URL opens the app in that language (and stores it)
+- URLs that pick a language:
+  - Japanese … `/` (the default), `/ja/`, or `?lang=ja`
+  - English … `/en/` or `?lang=en`
+
+  For example `https://<your-site>.onrender.com/en/` opens the English version.
 
 Switching changes the interface text as well as month, weekday and date formats and the names of
 the Japanese public holidays. Titles of events you already entered or imported are left untouched.
@@ -147,7 +152,9 @@ them up or move them. “Delete all data” in the “Calendars” dialog clears
 ## Files
 
 ```
-index.html            page structure
+index.html            page structure (shared by both languages)
+en/index.html         entry URL for English (redirects to ?lang=en)
+ja/index.html         entry URL for Japanese (redirects to ?lang=ja)
 manifest.json         settings for adding to the home screen
 icons/                app icons
 css/styles.css        styles for screen (desktop / phone) and print

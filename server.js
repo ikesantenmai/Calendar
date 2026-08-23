@@ -40,10 +40,25 @@ const server = http.createServer((req, res) => {
   }
 
   fs.stat(file, (err, stat) => {
-    if (err || !stat.isFile()) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('Not Found');
+    /* ディレクトリなら、その中の index.html を返す（/en/ → /en/index.html） */
+    if (!err && stat.isDirectory()) return send(path.join(file, 'index.html'));
+    if (err || !stat.isFile()) return notFound();
+    send(file, stat);
+  });
+
+  function notFound() {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+  }
+
+  function send(file, known) {
+    if (!known) {
+      return fs.stat(file, (err, stat) => {
+        if (err || !stat.isFile()) return notFound();
+        send(file, stat);
+      });
     }
+    const stat = known;
     const ext = path.extname(file).toLowerCase();
     res.writeHead(200, {
       'Content-Type': TYPES[ext] || 'application/octet-stream',
@@ -53,7 +68,7 @@ const server = http.createServer((req, res) => {
     });
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
-  });
+  }
 });
 
 server.listen(PORT, HOST, () => {

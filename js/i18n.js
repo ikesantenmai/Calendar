@@ -149,7 +149,8 @@
       'common.locationMark': '📍 ',
 
       'wd': ['日', '月', '火', '水', '木', '金', '土'],
-      'lang.name': '日本語'
+      'lang.name': '日本語',
+      'lang.other': 'English'
     },
 
     en: {
@@ -298,7 +299,8 @@
       'common.locationMark': '📍 ',
 
       'wd': ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-      'lang.name': 'English'
+      'lang.name': 'English',
+      'lang.other': '日本語'
     }
   };
 

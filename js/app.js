@@ -253,6 +253,8 @@
     I.setLang(next);
     I.applyStatic();
     $('langSelect').value = I.getLang();
+    $('langBtn').textContent = t('lang.other');   /* 押すと切り替わる先を表示する */
+    $('langBtn').setAttribute('aria-label', t('cal.lang'));
     document.querySelector('meta[name="apple-mobile-web-app-title"]')
       .setAttribute('content', t('app.name'));
     if (save) {
@@ -917,6 +919,10 @@
       S.addCalendar(n);
       $('newCalName').value = '';
       renderCalsList(); render();
+    });
+    $('langBtn').addEventListener('click', function () {
+      applyLang(I.getLang() === 'ja' ? 'en' : 'ja', true);
+      renderCalsList();
     });
     $('langSelect').addEventListener('change', function (e) {
       applyLang(e.target.value, true);
