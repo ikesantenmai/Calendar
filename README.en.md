@@ -90,10 +90,26 @@ Choose an `.ics` file with the “Import” button. To get one out of an iPhone:
 2. **From the iPhone alone (public calendar)**
    Calendar app → “Calendars” → tap ⓘ next to the calendar → turn on “Public Calendar” → copy the URL.
    Replace `webcal://` with `https://` and open it in a browser to download the `.ics`. You can also
-   paste the URL into “Load from a URL” in the app — if the publisher does not allow cross-origin
-   requests the browser blocks it (CORS), and you need to save the file and choose it instead.
+   paste the URL into “Load from a URL” in the app — see “Loading from a URL” below.
 3. **A single event**
    Open the event → Share → send it by mail, then choose the attached `.ics` file.
+
+### Loading from a URL
+
+iCloud published calendars (`webcal://p*-caldav.icloud.com/published/…`) do not send
+`Access-Control-Allow-Origin`, so **a browser cannot fetch them directly** (CORS). Safari reports
+this as “Load failed”. Use one of these instead:
+
+1. **Let the server fetch it (a Render Web Service, for example)**
+   `server.js` provides a relay at `/api/ics`. When the app runs with `npm start`, pasting the URL
+   and pressing “Load” is enough: the app tries a direct fetch first and falls back to the relay.
+   **A static site has no relay, so this path is not available there.**
+   - By default the relay only accepts iCloud / Apple / Google / Outlook・Office365 / Yahoo hosts
+   - Add more publishers with the `ICS_PROXY_ALLOW=host1,host2` environment variable
+   - Set `ICS_PROXY=off` to disable the relay
+2. **Save the file and choose it (works with any hosting)**
+   Replace `webcal://` with `https://`, open it in a desktop browser to download the `.ics`, and
+   choose that file in the app.
 
 On import you can either add a new calendar or merge into an existing one. Events whose `UID`
 already exists are replaced, so importing the same file again does not create duplicates.
@@ -125,6 +141,10 @@ and then **no start command is needed**.
 | Start Command | **not needed** (the field does not exist) |
 
 The same setup is described in `render.yaml` (a Render Blueprint) in the repository root.
+
+> If you want to import an iCloud published calendar through “Load from a URL”, choose the
+> **Web Service** below instead — that path needs the server relay. Everything else (importing a
+> saved file, printing, entering events) works on a static site.
 
 ### Running it as a Web Service
 

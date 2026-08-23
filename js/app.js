@@ -599,21 +599,80 @@
   }
 
   function loadFromUrl() {
-    var url = $('urlInput').value.trim();
-    if (!url) return;
-    var https = url.replace(/^webcal:\/\//i, 'https://');
+    var raw = $('urlInput').value.trim();
+    if (!raw) return;
+    var target = raw.replace(/^webcal:\/\//i, 'https://');
+    var host = '';
+    try { host = new URL(target).hostname; } catch (e) { host = target; }
+
     $('importError').hidden = true;
     setStatus(t('imp.loading'));
-    fetch(https, { mode: 'cors' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
+
+    fetchDirect(target)
+      .catch(function () {
+        /* iCloud などは Access-Control-Allow-Origin を返さないため、
+         * ブラウザからは直接読めない。同じ場所で動くサーバーに取り寄せてもらう。 */
+        setStatus(t('imp.relayTry'));
+        return fetchViaRelay(target, host);
       })
-      .then(function (text) { handleIcsText([text], t('imp.icloudName')); setStatus(''); })
+      .then(function (text) {
+        setStatus('');
+        handleIcsText([text], t('imp.icloudName'));
+      })
       .catch(function (err) {
         setStatus('');
-        importError(t('imp.fetchError', { msg: err.message }));
+        importError(err.uiMessage || t('imp.fetchError', { msg: err.message }));
       });
+  }
+
+  function fetchDirect(target) {
+    return fetch(target, { mode: 'cors' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    });
+  }
+
+  function relayUnavailable(host) {
+    var err = new Error('relay unavailable');
+    err.uiMessage = t('imp.noRelay', { host: host });
+    return err;
+  }
+
+  function fetchViaRelay(target, host) {
+    var api;
+    try {
+      api = new URL('api/ics', location.href);
+    } catch (e) {
+      return Promise.reject(relayUnavailable(host));
+    }
+    api.searchParams.set('url', target);
+
+    return fetch(api.href, { cache: 'no-store' }).then(function (r) {
+      if (r.ok) {
+        return r.text().then(function (text) {
+          /* 中継が無い場所では、この URL が HTML を返すことがある */
+          if (!/BEGIN:VCALENDAR/i.test(text)) throw relayUnavailable(host);
+          return text;
+        });
+      }
+      return r.json().catch(function () { return {}; }).then(function (info) {
+        var err;
+        if (r.status === 404 || info.error === 'disabled') {
+          err = relayUnavailable(host);
+        } else if (info.error === 'host_not_allowed') {
+          err = new Error(info.error);
+          err.uiMessage = t('imp.relayHostBlocked', { host: info.host || host });
+        } else {
+          err = new Error(info.error || ('HTTP ' + r.status));
+          err.uiMessage = t('imp.relayError', {
+            msg: (info.error || r.status) + (info.status ? ' ' + info.status : '')
+          });
+        }
+        throw err;
+      });
+    }, function () {
+      throw relayUnavailable(host);
+    });
   }
 
   function commitImport() {
