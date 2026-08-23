@@ -10,9 +10,13 @@
   ];
 
   var DEFAULT_STATE = {
-    calendars: [{ id: 'local', name: 'マイカレンダー', color: PALETTE[0], visible: true, source: 'local' }],
+    /* isDefault が立っているカレンダーの名前は、表示時に言語に合わせて差し替える */
+    calendars: [{
+      id: 'local', name: 'マイカレンダー', color: PALETTE[0],
+      visible: true, source: 'local', isDefault: true
+    }],
     events: [],
-    settings: { holidays: true, weekStartMonday: false, defaultCalendar: 'local' }
+    settings: { holidays: true, weekStartMonday: false, defaultCalendar: 'local', lang: 'ja' }
   };
 
   var state = null;
@@ -80,7 +84,7 @@
   function addCalendar(name, color, source) {
     var cal = {
       id: 'cal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: name || '新しいカレンダー',
+      name: name || 'Calendar',
       color: color || PALETTE[get().calendars.length % PALETTE.length],
       visible: true,
       source: source || 'local'

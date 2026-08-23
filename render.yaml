@@ -1,0 +1,15 @@
+# Render の Blueprint。静的サイトとして公開する（ビルド・起動コマンドは不要）。
+# Node の Web Service として動かす場合は、下のコメントの設定を使う。
+services:
+  - type: web
+    runtime: static
+    name: calendar
+    staticPublishPath: .
+    buildCommand: ""
+
+  # - type: web
+  #   runtime: node
+  #   name: calendar-node
+  #   plan: free
+  #   buildCommand: npm install
+  #   startCommand: npm start

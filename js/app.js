@@ -2,8 +2,8 @@
 (function () {
   'use strict';
 
-  var S = window.Store, ICSLib = window.ICS, H = window.Holidays;
-  var WD_SUN = ['日', '月', '火', '水', '木', '金', '土'];
+  var S = window.Store, ICSLib = window.ICS, H = window.Holidays, I = window.I18n;
+  var t = I.t;
 
   var view = new Date();          /* 表示中の月（1日に正規化） */
   var selected = null;            /* 'YYYY-MM-DD' */
@@ -22,6 +22,17 @@
   }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function todayStr() { return S.dateStr(new Date()); }
+  function wd(i) { return t('wd')[i]; }
+
+  /* 既定のカレンダー名だけは、言語に合わせて表示を差し替える */
+  function calName(cal) {
+    if (!cal) return '';
+    return cal.isDefault ? t('cal.default') : cal.name;
+  }
+
+  function holidayName(dateStr) {
+    return H.nameOf(dateStr, I.getLang());
+  }
 
   /* ---------- 月の描画 ---------- */
 
@@ -42,12 +53,12 @@
     var r = gridRange();
     occMap = S.occurrencesByDate(r.start, r.end);
 
-    var label = view.getFullYear() + '年' + (view.getMonth() + 1) + '月';
+    var label = I.monthTitle(view);
     $('title').textContent = label;
     $('monthPicker').value = view.getFullYear() + '-' + pad(view.getMonth() + 1);
-    document.title = label + ' | カレンダー';
+    document.title = label + ' | ' + t('app.name');
     $('printTitle').textContent = label;
-    $('printMeta').textContent = '出力日: ' + new Date().toLocaleDateString('ja-JP');
+    $('printMeta').textContent = t('prt.printedOn', { date: I.fullDate(new Date()) });
 
     renderWeekdays();
     renderGrid(r);
@@ -60,7 +71,7 @@
     wrap.innerHTML = '';
     for (var i = 0; i < 7; i++) {
       var idx = (weekStart() + i) % 7;
-      var d = el('div', 'weekdays__cell', WD_SUN[idx]);
+      var d = el('div', 'weekdays__cell', wd(idx));
       if (idx === 0) d.classList.add('is-sun');
       if (idx === 6) d.classList.add('is-sat');
       wrap.appendChild(d);
@@ -88,7 +99,7 @@
       var num = el('span', 'cell__num', String(d.getDate()));
       head.appendChild(num);
 
-      var hol = showHolidays ? H.nameOf(key) : null;
+      var hol = showHolidays ? holidayName(key) : null;
       if (hol) {
         cell.classList.add('is-holiday');
         head.appendChild(el('span', 'cell__holiday', hol));
@@ -135,12 +146,12 @@
   function timeLabel(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 
   function tooltip(occ) {
-    var t = occ.event.title;
-    if (!occ.allDay) t += ' ' + timeLabel(occ.occStart) + '–' + timeLabel(occ.occEnd);
-    if (occ.event.location) t += '\n場所: ' + occ.event.location;
-    if (occ.event.notes) t += '\n' + occ.event.notes;
-    t += '\n[' + (occ.calendar ? occ.calendar.name : '') + ']';
-    return t;
+    var txt = occ.event.title;
+    if (!occ.allDay) txt += ' ' + timeLabel(occ.occStart) + '–' + timeLabel(occ.occEnd);
+    if (occ.event.location) txt += '\n' + t('ev.location') + ': ' + occ.event.location;
+    if (occ.event.notes) txt += '\n' + occ.event.notes;
+    txt += '\n[' + calName(occ.calendar) + ']';
+    return txt;
   }
 
   /* 入りきらない予定の件数を「+N」で表示する */
@@ -157,7 +168,7 @@
         if (ch.offsetTop + ch.offsetHeight > limit + 2) hidden++;
       });
       if (hidden > 0) {
-        var more = el('button', 'cell__more', '他 ' + hidden + ' 件');
+        var more = el('button', 'cell__more', t('cell.more', { n: hidden }));
         more.type = 'button';
         cell.appendChild(more);
       }
@@ -169,10 +180,9 @@
   function renderSidebar() {
     var key = selected || todayStr();
     var d = S.toDate(key);
-    $('sidebarDate').textContent =
-      (d.getMonth() + 1) + '月' + d.getDate() + '日（' + WD_SUN[d.getDay()] + '）';
+    $('sidebarDate').textContent = I.dayTitle(d);
 
-    var hol = S.get().settings.holidays !== false ? H.nameOf(key) : null;
+    var hol = S.get().settings.holidays !== false ? holidayName(key) : null;
     var holBox = $('sidebarHoliday');
     holBox.hidden = !hol;
     holBox.textContent = hol || '';
@@ -187,24 +197,25 @@
       li.style.setProperty('--chip-color', occ.color);
       var main = el('div', 'daylist__main');
       main.appendChild(el('div', 'daylist__title', occ.event.title));
-      var meta = occ.allDay ? '終日'
+      var meta = occ.allDay ? t('common.allDay')
         : timeLabel(occ.occStart) + ' – ' + timeLabel(occ.occEnd);
       if (occ.multiDay) {
-        meta += '（' + S.dateStr(occ.occStart).slice(5).replace('-', '/') + ' 〜 ' +
-          S.dateStr(occ.occEnd).slice(5).replace('-', '/') + '）';
+        meta += ' (' + I.shortDate(occ.occStart) + ' – ' + I.shortDate(occ.occEnd) + ')';
       }
       if (occ.recurring) meta += ' ⟳';
       main.appendChild(el('div', 'daylist__meta', meta));
-      if (occ.event.location) main.appendChild(el('div', 'daylist__meta', '📍 ' + occ.event.location));
+      if (occ.event.location) {
+        main.appendChild(el('div', 'daylist__meta', t('common.locationMark') + occ.event.location));
+      }
       if (occ.event.notes) main.appendChild(el('div', 'daylist__notes', occ.event.notes));
-      main.appendChild(el('div', 'daylist__cal', occ.calendar ? occ.calendar.name : ''));
+      main.appendChild(el('div', 'daylist__cal', calName(occ.calendar)));
       li.appendChild(main);
 
       var edit = el('button', 'iconbtn', '✎');
-      edit.title = '編集';
+      edit.title = t('side.edit');
       edit.addEventListener('click', function () { openEvent(occ.event.id, occ.occStartLocal); });
       var del = el('button', 'iconbtn', '🗑');
-      del.title = '削除';
+      del.title = t('side.delete');
       del.addEventListener('click', function () { deleteOccurrence(occ.event, occ.occStartLocal); });
       var acts = el('div', 'daylist__acts');
       acts.appendChild(edit); acts.appendChild(del);
@@ -231,10 +242,32 @@
       dot.style.background = c.color;
       lab.appendChild(cb);
       lab.appendChild(dot);
-      lab.appendChild(document.createTextNode(c.name));
+      lab.appendChild(document.createTextNode(calName(c)));
       li.appendChild(lab);
       ul.appendChild(li);
     });
+  }
+
+  /* 言語を切り替えて、画面全体を描き直す */
+  function applyLang(next, save) {
+    I.setLang(next);
+    I.applyStatic();
+    $('langSelect').value = I.getLang();
+    document.querySelector('meta[name="apple-mobile-web-app-title"]')
+      .setAttribute('content', t('app.name'));
+    if (save) {
+      S.get().settings.lang = I.getLang();
+      S.save();
+    }
+    render();
+  }
+
+  /* URL の ?lang=en / ?lang=ja は保存された設定より優先する */
+  function langFromQuery() {
+    var m = /[?&]lang=([a-zA-Z-]+)/.exec(location.search);
+    if (!m) return null;
+    var v = m[1].toLowerCase().slice(0, 2);
+    return I.langs.indexOf(v) >= 0 ? v : null;
   }
 
   /* 画面幅がスマートフォン相当か（CSS のブレークポイントと合わせる） */
@@ -293,7 +326,11 @@
     colors.forEach(function (col) {
       var b = el('button', 'swatch');
       b.type = 'button';
-      if (!col) { b.classList.add('swatch--auto'); b.title = 'カレンダーの色'; b.textContent = '自'; }
+      if (!col) {
+        b.classList.add('swatch--auto');
+        b.title = t('cal.autoColorTitle');
+        b.textContent = t('cal.autoColor');
+      }
       else b.style.background = col;
       if (col === current) b.classList.add('is-on');
       b.addEventListener('click', function () {
@@ -308,7 +345,7 @@
   function fillCalendarSelect(sel, current) {
     sel.innerHTML = '';
     S.get().calendars.forEach(function (c) {
-      var o = el('option', null, c.name);
+      var o = el('option', null, calName(c));
       o.value = c.id;
       if (c.id === current) o.selected = true;
       sel.appendChild(o);
@@ -319,7 +356,7 @@
     var dlg = $('eventDialog');
     var ev = id ? S.eventById(id) : null;
     editing = ev ? ev.id : null;
-    $('eventDialogTitle').textContent = ev ? '予定を編集' : '予定を追加';
+    $('eventDialogTitle').textContent = ev ? t('ev.edit') : t('ev.add');
     $('evError').hidden = true;
     $('evDelete').hidden = !ev;
 
@@ -418,7 +455,7 @@
     var end = allDay ? ed : ed + 'T' + et;
     if (S.toDate(end) < S.toDate(start)) {
       var err = $('evError');
-      err.textContent = '終了日時は開始日時より後にしてください。';
+      err.textContent = t('ev.errRange');
       err.hidden = false;
       return;
     }
@@ -443,23 +480,21 @@
     selected = start.slice(0, 10);
     $('eventDialog').close();
     render();
-    setStatus(editing ? '予定を更新しました' : '予定を追加しました');
+    setStatus(editing ? t('msg.updated') : t('msg.added'));
     editing = null;
   }
 
   function deleteOccurrence(ev, occStart) {
     if (ev.rrule) {
-      var all = window.confirm(
-        '繰り返し予定です。\n[OK] すべての回を削除\n[キャンセル] この日（' +
-        String(occStart).slice(0, 10) + '）だけ削除');
+      var all = window.confirm(t('cf.deleteRecurring', { date: String(occStart).slice(0, 10) }));
       if (all) S.removeEvent(ev.id);
       else S.excludeOccurrence(ev.id, occStart);
     } else {
-      if (!window.confirm('「' + ev.title + '」を削除しますか？')) return;
+      if (!window.confirm(t('cf.delete', { title: ev.title }))) return;
       S.removeEvent(ev.id);
     }
     render();
-    setStatus('予定を削除しました');
+    setStatus(t('msg.deleted'));
   }
 
   /* ---------- インポート ---------- */
@@ -479,11 +514,11 @@
   function fillImportTarget() {
     var sel = $('importTarget');
     sel.innerHTML = '';
-    var o = el('option', null, '新しいカレンダーとして追加');
+    var o = el('option', null, t('imp.newCal'));
     o.value = '';
     sel.appendChild(o);
     S.get().calendars.forEach(function (c) {
-      var x = el('option', null, c.name + ' に追加');
+      var x = el('option', null, t('imp.addTo', { name: calName(c) }));
       x.value = c.id;
       sel.appendChild(x);
     });
@@ -508,7 +543,7 @@
     });
 
     if (!all.length) {
-      importError('予定が見つかりませんでした。iCalendar 形式（.ics）のファイルか確認してください。');
+      importError(t('imp.none'));
       $('importCommit').disabled = true;
       $('importPreview').hidden = true;
       return;
@@ -518,17 +553,19 @@
     $('importError').hidden = true;
     $('importPreview').hidden = false;
     $('importCommit').disabled = false;
-    $('importName').value = names[0] || suggestedName || 'インポートしたカレンダー';
+    $('importName').value = names[0] || suggestedName || t('cal.importedName');
 
     var dates = all.map(function (e) { return e.start.slice(0, 10); }).sort();
     var recurring = all.filter(function (e) { return !!e.rrule; }).length;
     var ul = $('importSummary');
     ul.innerHTML = '';
-    ul.appendChild(el('li', null, '予定 ' + all.length + ' 件'));
-    ul.appendChild(el('li', null, '期間 ' + dates[0] + ' 〜 ' + dates[dates.length - 1]));
-    if (recurring) ul.appendChild(el('li', null, '繰り返し予定 ' + recurring + ' 件'));
-    if (skipped) ul.appendChild(el('li', null, '読み取れなかった項目 ' + skipped + ' 件'));
-    ul.appendChild(el('li', null, '例: ' + all.slice(0, 3).map(function (e) { return e.title; }).join(' / ')));
+    ul.appendChild(el('li', null, t('imp.events', { n: all.length })));
+    ul.appendChild(el('li', null, t('imp.range', { from: dates[0], to: dates[dates.length - 1] })));
+    if (recurring) ul.appendChild(el('li', null, t('imp.recurring', { n: recurring })));
+    if (skipped) ul.appendChild(el('li', null, t('imp.skipped', { n: skipped })));
+    ul.appendChild(el('li', null, t('imp.example', {
+      list: all.slice(0, 3).map(function (e) { return e.title; }).join(' / ')
+    })));
   }
 
   function readFiles(files) {
@@ -554,17 +591,16 @@
     if (!url) return;
     var https = url.replace(/^webcal:\/\//i, 'https://');
     $('importError').hidden = true;
-    setStatus('読み込み中…');
+    setStatus(t('imp.loading'));
     fetch(https, { mode: 'cors' })
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.text();
       })
-      .then(function (t) { handleIcsText([t], 'iCloud カレンダー'); setStatus(''); })
+      .then(function (text) { handleIcsText([text], t('imp.icloudName')); setStatus(''); })
       .catch(function (err) {
         setStatus('');
-        importError('URL から取得できませんでした（' + err.message +
-          '）。ブラウザの制限（CORS）が原因のことがあります。URL をブラウザで直接開いて .ics を保存し、ドロップしてください。');
+        importError(t('imp.fetchError', { msg: err.message }));
       });
   }
 
@@ -575,7 +611,7 @@
     if (targetId) {
       cal = S.calendarById(targetId);
     } else {
-      cal = S.addCalendar($('importName').value.trim() || 'インポートしたカレンダー', importColor, 'ics');
+      cal = S.addCalendar($('importName').value.trim() || t('cal.importedName'), importColor, 'ics');
     }
     var dedupe = $('importDedupe').checked;
     var st = S.get();
@@ -608,7 +644,7 @@
 
     $('importDialog').close();
     render();
-    setStatus('インポート完了：追加 ' + added + ' 件' + (updated ? ' / 更新 ' + updated + ' 件' : ''));
+    setStatus(t('imp.done', { added: added }) + (updated ? t('imp.doneUpdated', { n: updated }) : ''));
     importBuffer = null;
   }
 
@@ -619,8 +655,8 @@
     var vis = {};
     st.calendars.forEach(function (c) { vis[c.id] = c.visible !== false; });
     var events = st.events.filter(function (e) { return vis[e.calendarId] !== false; });
-    if (!events.length) { setStatus('書き出す予定がありません'); return; }
-    var text = ICSLib.build(events, 'カレンダー');
+    if (!events.length) { setStatus(t('msg.nothingToExport')); return; }
+    var text = ICSLib.build(events, t('cal.exportName'));
     var blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -628,13 +664,14 @@
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    setStatus(events.length + ' 件を .ics に書き出しました');
+    setStatus(t('msg.exported', { n: events.length }));
   }
 
   /* ---------- カレンダー管理 ---------- */
 
   function openCals() {
     renderCalsList();
+    $('langSelect').value = I.getLang();
     $('optHolidays').checked = S.get().settings.holidays !== false;
     $('optWeekStart').checked = !!S.get().settings.weekStartMonday;
     $('calsDialog').showModal();
@@ -649,14 +686,18 @@
       var vis = el('input');
       vis.type = 'checkbox';
       vis.checked = c.visible !== false;
-      vis.title = '表示';
+      vis.title = t('cal.visible');
       vis.addEventListener('change', function () { c.visible = vis.checked; S.save(); render(); });
 
       var name = el('input', 'cals__name');
       name.type = 'text';
-      name.value = c.name;
+      name.value = calName(c);
       name.addEventListener('change', function () {
-        c.name = name.value.trim() || c.name;
+        var v = name.value.trim();
+        if (v && v !== calName(c)) {
+          c.name = v;
+          delete c.isDefault;   /* 名前を変えたら、言語による差し替えをやめる */
+        }
         S.save(); renderCalsList(); render();
       });
 
@@ -670,13 +711,14 @@
       });
 
       var count = S.get().events.filter(function (e) { return e.calendarId === c.id; }).length;
-      var meta = el('span', 'muted small', count + ' 件' + (c.source === 'ics' ? '・インポート' : ''));
+      var meta = el('span', 'muted small',
+        t('cal.count', { n: count }) + (c.source === 'ics' ? t('cal.imported') : ''));
 
-      var del = el('button', 'btn btn--small btn--danger', '削除');
+      var del = el('button', 'btn btn--small btn--danger', t('side.delete'));
       del.type = 'button';
       del.addEventListener('click', function () {
-        if (!window.confirm('「' + c.name + '」と、その中の ' + count + ' 件の予定を削除します。よろしいですか？')) return;
-        if (!S.removeCalendar(c.id)) { window.alert('最後のカレンダーは削除できません。'); return; }
+        if (!window.confirm(t('cal.confirmDelete', { name: calName(c), n: count }))) return;
+        if (!S.removeCalendar(c.id)) { window.alert(t('cal.lastOne')); return; }
         renderCalsList(); render();
       });
 
@@ -738,7 +780,7 @@
   function moveEventToDate(id, newDateStr) {
     var ev = S.eventById(id);
     if (!ev) return;
-    if (ev.rrule) { setStatus('繰り返し予定はドラッグで移動できません'); return; }
+    if (ev.rrule) { setStatus(t('msg.noDragRecurring')); return; }
     var oldStart = S.toDate(ev.start);
     var delta = Math.round((S.toDate(newDateStr) - S.startOfDay(oldStart)) / 86400000);
     if (!delta) return;
@@ -748,7 +790,7 @@
     ev.end = ev.allDay ? S.dateStr(ne) : S.dateStr(ne) + 'T' + timeLabel(ne);
     S.upsertEvent(ev);
     render();
-    setStatus('「' + ev.title + '」を ' + newDateStr + ' に移動しました');
+    setStatus(t('msg.moved', { title: ev.title, date: newDateStr }));
   }
 
   /* ---------- 初期化 ---------- */
@@ -777,7 +819,7 @@
     $('exportBtn').addEventListener('click', exportIcs);
     $('calsBtn').addEventListener('click', openCals);
     $('printBtn').addEventListener('click', function () {
-      $('printMonthLabel').textContent = view.getFullYear() + '年' + (view.getMonth() + 1) + '月';
+      $('printDesc').textContent = t('prt.desc', { month: I.monthTitle(view) });
       $('printDialog').showModal();
     });
 
@@ -876,6 +918,10 @@
       $('newCalName').value = '';
       renderCalsList(); render();
     });
+    $('langSelect').addEventListener('change', function (e) {
+      applyLang(e.target.value, true);
+      renderCalsList();
+    });
     $('optHolidays').addEventListener('change', function (e) {
       S.get().settings.holidays = e.target.checked; S.save(); render();
     });
@@ -883,11 +929,11 @@
       S.get().settings.weekStartMonday = e.target.checked; S.save(); render();
     });
     $('wipeBtn').addEventListener('click', function () {
-      if (!window.confirm('保存されているすべての予定とカレンダーを削除します。元に戻せません。よろしいですか？')) return;
+      if (!window.confirm(t('cal.confirmWipe'))) return;
       S.reset();
       $('calsDialog').close();
       render();
-      setStatus('データを削除しました');
+      setStatus(t('msg.wiped'));
     });
 
     /* 印刷 */
@@ -937,7 +983,10 @@
 
   S.load();
   selected = todayStr();
+  var startLang = langFromQuery() || S.get().settings.lang || 'ja';
+  I.setLang(startLang);
+  I.applyStatic();
   bind();
-  render();
+  applyLang(startLang, startLang !== S.get().settings.lang);
   applyPrintOptions();
 })();

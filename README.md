@@ -1,11 +1,14 @@
 # カレンダー Web アプリ
 
+[English](README.en.md)
+
 予定を入力・管理できる月間カレンダーです。ビルド不要の HTML / CSS / JavaScript だけで動きます。
 
 - **予定の入力** — 追加・編集・削除、終日予定、複数日にまたがる予定、繰り返し、場所・メモ、カレンダー分け、色分け
 - **iPhone のカレンダーのインポート** — iCalendar 形式（`.ics`）の読み込み。公開カレンダーの URL からの取り込みにも対応
 - **印刷** — 表示中の月を A4 1 ページに印刷（縦 / 横、時刻・場所の有無、白黒などを選択可能）
 - **スマートフォン対応** — iPhone / Android の画面に合わせたレイアウト、スワイプでの月移動、ホーム画面への追加
+- **日本語 / English** — 画面の表示言語を切り替え可能（既定は日本語）
 
 ## 使い方
 
@@ -20,6 +23,17 @@ npx http-server -p 8080 .
 対応ブラウザ: Chrome / Edge / Safari / Firefox の最新版（iOS Safari / Android Chrome を含む）。
 スマートフォンから使うときは、パソコンで簡易サーバーを立てて同じネットワークからアクセスするか、
 任意の静的ホスティングに置いてください。
+
+## 言語（日本語 / English）
+
+既定は**日本語**です。ブラウザの言語設定にかかわらず、初回は日本語で表示されます。
+
+- 切り替え: 「カレンダー」ダイアログ →「言語 / Language」
+- 選んだ言語はこのブラウザに保存され、次回もその言語で開きます
+- URL に `?lang=en` / `?lang=ja` を付けると、その言語で開けます（保存もされます）
+
+切り替えると、画面の文言に加えて月・曜日・日付の表記と日本の祝日名も切り替わります。
+すでに入力・取り込んだ予定のタイトルなどは、そのままの言語で保持されます。
 
 ## スマートフォンで使う
 
@@ -85,6 +99,42 @@ iPhone にはメール添付などで送り、添付ファイルを開くと取�
 色を紙に出すには、プリンタの設定で「背景のグラフィック（背景を印刷）」を有効にしてください。
 `Ctrl` / `⌘` + `P` からも同じレイアウトで印刷できます。
 
+## Render.com へのデプロイ
+
+このアプリは静的ファイルだけで動くため、**Static Site** として公開するのがおすすめです。
+その場合 **スタートコマンドは不要**です。
+
+| 項目 | 設定値 |
+| --- | --- |
+| Language / Runtime | **Static Site** |
+| Build Command | （空欄のまま） |
+| Publish Directory | `.` |
+| Start Command | **不要**（設定欄がありません） |
+
+リポジトリ直下の `render.yaml`（Blueprint）でも同じ内容を定義しています。
+
+### Web Service として動かす場合
+
+Render の **Web Service**（Node）を選んだときは、次の値を入力します。
+`server.js`（依存パッケージなしの静的配信サーバー）を同梱しています。
+
+| 項目 | 設定値 |
+| --- | --- |
+| Language / Runtime | **Node** |
+| Build Command | `npm install` |
+| **Start Command** | **`npm start`**（= `node server.js`） |
+
+`npm start` を使わずに 1 行で済ませたい場合は、次のどちらでも動きます。
+
+```sh
+node server.js
+# または、リポジトリに何も足さずに済ませる場合
+npx --yes http-server . -p $PORT -a 0.0.0.0
+```
+
+Render は環境変数 `PORT` で待ち受けポートを渡し、`0.0.0.0` で待ち受けることを要求します。
+`server.js` はどちらにも対応済みです（`PORT` 未設定なら 3000 番）。
+
 ## データの保存先
 
 予定はサーバーに送信されず、ブラウザの `localStorage`（キー `calendar-app:v1`）に保存されます。
@@ -98,9 +148,13 @@ index.html            画面の構造
 manifest.json         ホーム画面に追加するための設定
 icons/                アプリアイコン
 css/styles.css        画面（パソコン／スマートフォン）と印刷のスタイル
+js/i18n.js            日本語 / 英語の文言と日付表記
 js/holidays.js        日本の祝日の計算
 js/ics.js             iCalendar (.ics) の読み書き
 js/store.js           localStorage への保存と繰り返し予定の展開
 js/app.js             描画と操作
+server.js             Node で配信する場合の静的サーバー（Render の Web Service 用）
+render.yaml           Render の Blueprint（静的サイト）
+package.json          npm start（= node server.js）
 samples/iphone-sample.ics  動作確認用のサンプル
 ```
