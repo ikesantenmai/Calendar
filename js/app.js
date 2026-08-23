@@ -145,6 +145,7 @@
 
   /* 入りきらない予定の件数を「+N」で表示する */
   function markOverflow() {
+    if (isPhone()) return;   /* 点表示なので「他 N 件」は出さない */
     Array.prototype.forEach.call(document.querySelectorAll('.cell'), function (cell) {
       var old = cell.querySelector('.cell__more');
       if (old) old.remove();
@@ -234,6 +235,47 @@
       li.appendChild(lab);
       ul.appendChild(li);
     });
+  }
+
+  /* 画面幅がスマートフォン相当か（CSS のブレークポイントと合わせる） */
+  function isPhone() {
+    return window.matchMedia('(max-width: 620px)').matches;
+  }
+
+  function toggleMenu(open) {
+    var m = $('menu'), b = $('menuBtn');
+    var next = open != null ? open : !m.classList.contains('is-open');
+    m.classList.toggle('is-open', next);
+    b.setAttribute('aria-expanded', next ? 'true' : 'false');
+  }
+
+  /* 横スワイプで前後の月へ */
+  function bindSwipe(target) {
+    var x0 = 0, y0 = 0, t0 = 0, tracking = false;
+    target.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { tracking = false; return; }
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+      t0 = Date.now();
+      tracking = true;
+    }, { passive: true });
+    target.addEventListener('touchend', function (e) {
+      if (!tracking) return;
+      tracking = false;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Date.now() - t0 > 700) return;
+      if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      move(dx < 0 ? 1 : -1);
+      animateGrid(dx < 0 ? 'left' : 'right');
+    }, { passive: true });
+  }
+
+  function animateGrid(dir) {
+    var g = $('grid');
+    g.classList.remove('slide-left', 'slide-right');
+    void g.offsetWidth;
+    g.classList.add(dir === 'left' ? 'slide-left' : 'slide-right');
   }
 
   function setStatus(msg) {
@@ -690,6 +732,7 @@
       c.classList.toggle('is-selected', c.dataset.date === key);
     });
     renderSidebar();
+    if (isPhone()) $('sidebar').scrollTop = 0;
   }
 
   function moveEventToDate(id, newDateStr) {
@@ -745,9 +788,12 @@
       var cell = e.target.closest('.cell');
       if (!cell) return;
       selectDate(cell.dataset.date);
-      if (chipEl) openEvent(chipEl.dataset.eventId, chipEl.dataset.occStart);
+      /* スマートフォンでは予定が点表示なので、下の一覧から開いてもらう */
+      if (chipEl && !isPhone()) openEvent(chipEl.dataset.eventId, chipEl.dataset.occStart);
     });
     grid.addEventListener('dblclick', function (e) {
+      /* スマートフォンのダブルタップは拡大や誤操作になりやすいので使わない */
+      if (isPhone()) return;
       var cell = e.target.closest('.cell');
       if (!cell || e.target.closest('.chip')) return;
       selected = cell.dataset.date;
@@ -867,7 +913,26 @@
       else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openEvent(null); }
     });
 
+    /* 「⋯」メニュー（スマートフォン） */
+    $('menuBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleMenu();
+    });
+    $('menu').addEventListener('click', function () { toggleMenu(false); });
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('#menu') && !e.target.closest('#menuBtn')) toggleMenu(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') toggleMenu(false);
+    });
+
+    /* 横スワイプで月を移動（スマートフォン・タブレット） */
+    bindSwipe(document.querySelector('.calendar'));
+
     window.addEventListener('resize', function () { requestAnimationFrame(markOverflow); });
+    window.addEventListener('orientationchange', function () {
+      setTimeout(function () { requestAnimationFrame(markOverflow); }, 250);
+    });
   }
 
   S.load();

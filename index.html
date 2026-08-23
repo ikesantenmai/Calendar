@@ -2,9 +2,19 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>カレンダー</title>
 <meta name="description" content="予定を入力・管理できるカレンダー。iPhone のカレンダー（.ics）のインポートと月間カレンダーの印刷に対応。">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1f24" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="カレンダー">
+<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -22,11 +32,18 @@
     </div>
 
     <div class="toolbar__group toolbar__group--end">
-      <button id="addBtn" class="btn btn--primary" title="予定を追加 (N)">＋ 予定を追加</button>
-      <button id="importBtn" class="btn">インポート</button>
-      <button id="exportBtn" class="btn">書き出し</button>
-      <button id="calsBtn" class="btn">カレンダー</button>
-      <button id="printBtn" class="btn" title="印刷 (Ctrl/⌘+P)">印刷</button>
+      <button id="addBtn" class="btn btn--primary" title="予定を追加 (N)">
+        ＋<span class="btn__label"> 予定を追加</span>
+      </button>
+      <!-- 画面が狭いときは、以下のボタンを「⋯」メニューにまとめる -->
+      <div class="menu" id="menu">
+        <button id="importBtn" class="btn">インポート</button>
+        <button id="exportBtn" class="btn">書き出し</button>
+        <button id="calsBtn" class="btn">カレンダー</button>
+        <button id="printBtn" class="btn" title="印刷 (Ctrl/⌘+P)">印刷</button>
+      </div>
+      <button id="menuBtn" class="btn btn--menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu"
+              aria-label="その他のメニュー">⋯</button>
     </div>
   </header>
 
@@ -159,8 +176,8 @@
 
     <div id="dropzone" class="dropzone" tabindex="0" role="button"
          aria-label="ICS ファイルを選択またはドロップ">
-      <strong>.ics ファイルをここにドロップ</strong>
-      <span class="muted">またはクリックしてファイルを選択（複数可）</span>
+      <strong>.ics ファイルを選ぶ</strong>
+      <span class="muted">タップ／クリックで選択（複数可）。パソコンではここにドロップもできます</span>
       <input type="file" id="fileInput" accept=".ics,.ical,.ifb,text/calendar" multiple hidden>
     </div>
 
@@ -175,7 +192,7 @@
           その URL の <code>webcal://</code> を <code>https://</code> に変えてブラウザで開くと <code>.ics</code> が保存できます。
           下の「URL から読み込む」に貼り付けても構いません。</li>
         <li><strong>1 件だけ</strong><br>
-          予定を開く → 共有ボタン →「メールで送信」等。添付の <code>.ics</code> をこの画面にドロップします。</li>
+          予定を開く → 共有ボタン →「メールで送信」等。添付の <code>.ics</code> をこの画面で選びます。</li>
       </ol>
     </details>
 
@@ -185,7 +202,7 @@
         <input id="urlInput" type="url" placeholder="webcal://p01-calendars.icloud.com/published/…">
         <button type="button" id="urlLoad" class="btn">読み込む</button>
       </div>
-      <p class="muted small">配信元が許可していない場合はブラウザの制限（CORS）で取得できません。その場合はファイルを保存してドロップしてください。</p>
+      <p class="muted small">配信元が許可していない場合はブラウザの制限（CORS）で取得できません。その場合はファイルを保存してから選んでください。</p>
     </div>
 
     <div id="importPreview" hidden>

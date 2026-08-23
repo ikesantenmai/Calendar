@@ -128,6 +128,18 @@ body {
 .btn--danger { color: #c0342f; border-color: #e6b4b2; }
 .btn--danger:hover { background: rgba(192,52,47,.08); }
 .btn--small { padding: 4px 9px; font-size: 12px; }
+.btn:disabled, .btn[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.btn:disabled:hover:not(.btn--primary) { background: var(--panel); }
+.btn--primary:disabled:hover { filter: none; }
+.btn--menu { display: none; }
+.menu { display: contents; }   /* 広い画面ではボタンをそのまま並べる */
+
+@media screen and (max-width: 620px), screen and (max-height: 520px) {
+  .btn--menu { display: inline-block; }
+}
 
 .iconbtn {
   border: 1px solid transparent;
@@ -241,6 +253,21 @@ body {
   flex-direction: column;
   gap: 2px;
   margin-top: 2px;
+}
+
+/* 月をめくったときの動き */
+.grid.slide-left { animation: slide-left .18s ease-out; }
+.grid.slide-right { animation: slide-right .18s ease-out; }
+@keyframes slide-left {
+  from { opacity: .3; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slide-right {
+  from { opacity: .3; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid.slide-left, .grid.slide-right { animation: none; }
 }
 
 .cell__more {
@@ -498,21 +525,195 @@ hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
 /* ============ 画面のみ ============ */
 .printhead { display: none; }
 
-@media (max-width: 620px) {
-  .monthpicker { display: none; }
-  .toolbar { padding: 8px 10px; }
-  .btn { padding: 6px 10px; }
-}
-
-@media (max-width: 900px) {
+/* ---------- タブレット・スマートフォンの縦向き（縦 1 カラム） ---------- */
+@media screen and (max-width: 900px) and (min-height: 521px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
+    grid-template-rows: auto minmax(0, 1fr);
   }
-  .grid { grid-template-rows: repeat(var(--weeks, 6), minmax(96px, auto)); }
-  .calendar { min-height: 60vh; }
+  .grid { grid-template-rows: repeat(var(--weeks, 6), minmax(0, 1fr)); }
+  .calendar { height: 58vh; }
   .title { font-size: 17px; }
   .grid2 { grid-template-columns: 1fr; }
+  .sidebar { min-height: 180px; }
+}
+
+/* ---------- 画面の低い端末（スマートフォンの横向きなど）は左右 2 カラムのまま ---------- */
+@media screen and (max-height: 520px) and (min-width: 621px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-rows: minmax(0, 1fr);
+    padding: 6px;
+    gap: 6px;
+  }
+  .calendar { height: auto; }
+  .grid { grid-template-rows: repeat(var(--weeks, 6), minmax(0, 1fr)); }
+  .sidebar { min-height: 0; }
+}
+
+/* ---------- コンパクト表示（スマートフォン全般） ---------- */
+@media screen and (max-width: 620px), screen and (max-height: 520px) {
+  html, body { overscroll-behavior-y: contain; }
+
+  .app {
+    height: 100vh;
+    height: 100dvh;   /* アドレスバーの伸縮に追従する */
+  }
+
+  /* ツールバー：タイトル＋「＋」＋「⋯」だけを残す */
+  .toolbar {
+    position: relative;
+    padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .toolbar__group--end { gap: 6px; flex-wrap: nowrap; }
+  .title {
+    font-size: 17px;
+    margin: 0 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .monthpicker { display: none; }
+  .btn__label { display: none; }
+  .btn {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  .iconbtn {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 20px;
+  }
+  .navcluster { gap: 0; }
+
+  .menu {
+    position: absolute;
+    top: calc(100% - 4px);
+    right: 10px;
+    z-index: 30;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    min-width: 168px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+  .menu.is-open { display: flex; }
+  .menu .btn {
+    border: none;
+    text-align: left;
+    justify-content: flex-start;
+  }
+
+  .layout { padding: 8px; gap: 8px; }
+
+  .calendar {
+    touch-action: pan-y;   /* 横スワイプで月を移動する */
+  }
+  .weekdays__cell { padding: 5px 0; font-size: 11px; }
+  .grid { grid-template-rows: repeat(var(--weeks, 6), minmax(0, 1fr)); }
+
+  .cell { padding: 2px 1px 2px; }
+  .cell__head { justify-content: center; min-height: 17px; }
+  .cell__num { font-size: 12px; }
+  .cell__holiday { display: none; }
+  .cell.is-today .cell__num { padding: 1px 6px; }
+  .cell__more { display: none; }
+
+  /* 予定は点で表示し、内容は下の一覧で読む（iPhone のカレンダーと同じ考え方） */
+  .cell__events {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: flex-start;
+    gap: 3px;
+    margin-top: 3px;
+  }
+  .chip {
+    width: 6px;
+    height: 6px;
+    padding: 0;
+    gap: 0;
+    border-radius: 50%;
+    background: var(--chip-color);
+    overflow: hidden;
+    flex: none;
+  }
+  .chip > * { display: none; }
+  .chip--block, .chip--cont, .chip--open { border-radius: 50%; }
+
+  /* 選択中の日の一覧 */
+  .sidebar {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar__head {
+    position: sticky;
+    top: -10px;
+    z-index: 2;
+    background: var(--panel);
+    padding: 4px 0 8px;
+  }
+  .sidebar__head h2 { font-size: 17px; }
+  .daylist__item { padding: 10px; }
+  .daylist__acts { flex-direction: row; gap: 4px; }
+
+  .statusbar { padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); }
+  .statusbar span + span { display: none; }
+
+  /* ダイアログはボトムシート風にして、画面下から出す */
+  .dialog {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .dialog__body { padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); }
+  .dialog__head {
+    position: sticky;
+    top: -14px;
+    z-index: 2;
+    background: var(--panel);
+    padding-top: 6px;
+    margin: -6px 0 10px;
+  }
+  .dialog__foot {
+    position: sticky;
+    bottom: calc(-14px - env(safe-area-inset-bottom));
+    background: var(--panel);
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .dialog__foot .btn { flex: 1 1 auto; }
+  .dialog__foot .spacer { flex-basis: 100%; height: 0; }
+
+  /* iOS で入力時に自動拡大されないよう 16px 以上にする */
+  input[type=text], input[type=url], input[type=date], input[type=time],
+  input[type=month], select, textarea {
+    font-size: 16px;
+    padding: 10px;
+  }
+  .check { min-height: 36px; }
+  .check input[type=checkbox] { width: 20px; height: 20px; }
+  .swatch { width: 32px; height: 32px; }
+  .inline { flex-wrap: wrap; }
+  .inline > .btn { flex: none; }
+  .dropzone { padding: 26px 14px; }
+  .howto { font-size: 14px; }
+}
+
+/* 縦向きのスマートフォン：月の面積を抑え、下の一覧を常に見えるようにする */
+@media screen and (max-width: 620px) and (min-height: 521px) {
+  .calendar { height: 45dvh; min-height: 250px; }
 }
 
 /* ============ 印刷 ============ */
