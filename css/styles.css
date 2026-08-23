@@ -32,6 +32,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
   margin: 0;
@@ -80,6 +82,7 @@ body {
 }
 .toolbar__group--end {
   margin-left: auto;
+  flex: none;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -88,13 +91,21 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: none;
 }
+/* 見出し以外は縮めない。狭いときは見出しを省略表示する */
+.viewswitch, .langswitch, .monthpicker, .btn, .iconbtn { flex: none; }
 .title {
+  flex: none;
   margin: 0 6px;
+  min-width: 0;
+  max-width: 42vw;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: .02em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .monthpicker {
   width: auto;
@@ -135,6 +146,26 @@ body {
 .btn:disabled:hover:not(.btn--primary) { background: var(--panel); }
 .btn--primary:disabled:hover { filter: none; }
 .btn--menu { display: none; }
+
+/* 月 / 週 の切り替え */
+.viewswitch {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.viewswitch__opt {
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.viewswitch__opt + .viewswitch__opt { border-left: 1px solid var(--line-strong); }
+.viewswitch__opt:hover { background: rgba(127,127,127,.1); }
+.viewswitch__opt.is-on { background: var(--accent); color: #fff; font-weight: 600; }
 
 /* 言語の 2 択（日本語 | English） */
 .langswitch {
@@ -351,6 +382,149 @@ body {
 .chip--cont { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .chip--open { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .chip__cont { font-size: 9px; opacity: .8; }
+
+/* ============ 週の時刻表示 ============ */
+.weekview {
+  --gutter: 52px;
+  --hour-h: 44px;
+  display: flex;
+  flex-direction: column;
+}
+
+.weekview__head,
+.weekview__allday {
+  display: grid;
+  grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr));
+}
+.weekview__head { border-bottom: 1px solid var(--line); }
+.weekview__allday {
+  border-bottom: 1px solid var(--line);
+  min-height: 24px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.weekview__gutter {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: right;
+  padding: 3px 5px 0 0;
+}
+
+.wday {
+  border-left: 1px solid var(--line);
+  padding: 5px 2px 6px;
+  text-align: center;
+  cursor: pointer;
+  min-width: 0;
+}
+.wday:hover { background: rgba(127,127,127,.07); }
+.wday.is-selected { background: var(--sel); }
+.wday__name { display: block; font-size: 11px; color: var(--muted); }
+.wday__num {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+  border-radius: 999px;
+}
+.wday.is-sun .wday__num, .wday.is-holiday .wday__num { color: var(--sun); }
+.wday.is-sat .wday__num { color: var(--sat); }
+.wday.is-today .wday__num { background: var(--accent); color: #fff; }
+.wday__holiday {
+  display: block;
+  font-size: 9.5px;
+  color: var(--sun);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wallday {
+  border-left: 1px solid var(--line);
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.weekview__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: var(--gutter) minmax(0, 1fr);
+}
+.hours { display: grid; grid-template-rows: repeat(24, var(--hour-h)); }
+.hours__row { position: relative; }
+.hours__label {
+  position: absolute;
+  top: -6px;
+  right: 5px;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.hours__row:first-child .hours__label { top: 1px; }
+
+.weekcols {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  height: calc(24 * var(--hour-h));
+}
+.weekcol {
+  position: relative;
+  border-left: 1px solid var(--line);
+  min-width: 0;
+  cursor: pointer;
+  background-image: repeating-linear-gradient(
+    to bottom, var(--line) 0, var(--line) 1px, transparent 1px, transparent var(--hour-h));
+}
+.weekcol.is-today { background-color: var(--today); }
+.weekcol.is-selected { background-color: var(--sel); }
+
+.wevent {
+  position: absolute;
+  overflow: hidden;
+  padding: 1px 4px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,.4);
+  background: var(--chip-color, var(--accent));
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.25;
+  min-height: 13px;
+  cursor: pointer;
+}
+.wevent:hover { filter: brightness(1.07); }
+.wevent__time { display: block; font-size: 10px; opacity: .9; font-variant-numeric: tabular-nums; }
+.wevent__title { display: block; font-weight: 600; }
+.wevent__loc { display: block; font-size: 10px; opacity: .85; }
+.wevent--short { white-space: nowrap; padding: 0 4px; }
+.wevent--short .wevent__time { display: inline; margin-right: 3px; }
+.wevent--short .wevent__title { display: inline; font-weight: 600; }
+.wevent--short .wevent__loc { display: none; }
+
+.nowline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e5484d;
+  pointer-events: none;
+}
+.nowline::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5484d;
+}
 
 /* ============ サイドバー ============ */
 .sidebar {
@@ -594,11 +768,18 @@ hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
   }
   .toolbar__group--end { gap: 6px; flex-wrap: nowrap; }
   .title {
-    font-size: 17px;
+    /* 幅が足りないときは見出しを縮める（横スクロールを出さない） */
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 0;
+    font-size: 16px;
     margin: 0 2px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .viewswitch__opt { padding: 6px 8px; font-size: 12px; }
+  .navcluster .btn { padding: 8px 9px; font-size: 13px; }
+  .navcluster .iconbtn { min-width: 34px; padding: 6px 4px; }
   .monthpicker { display: none; }
   .btn__label { display: none; }
   .btn {
@@ -680,6 +861,28 @@ hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
   .chip > * { display: none; }
   .chip--block, .chip--cont, .chip--open { border-radius: 50%; }
 
+  /* 週の時刻表示 */
+  .weekview { --gutter: 34px; --hour-h: 40px; }
+  .wday { padding: 4px 1px 5px; }
+  .wday__name { font-size: 10px; }
+  .wday__num { font-size: 13px; padding: 0 4px; }
+  .wday__holiday { display: none; }
+  .weekview__allday { max-height: 66px; }
+  .hours__label { font-size: 9px; right: 3px; }
+  .wevent { font-size: 10px; padding: 0 2px; }
+  .wevent__time { font-size: 9px; }
+  .wevent__loc { display: none; }
+  /* 終日の予定は、月表示と違って帯のまま見せる */
+  .wallday .chip {
+    width: auto;
+    height: auto;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 10px;
+  }
+  .wallday .chip > .chip__title,
+  .wallday .chip > .chip__cont { display: inline; }
+
   /* 選択中の日の一覧 */
   .sidebar {
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -743,6 +946,17 @@ hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
   .inline > .btn { flex: none; }
   .dropzone { padding: 26px 14px; }
   .howto { font-size: 14px; }
+}
+
+/* とても狭い画面（iPhone SE など）は、見出しを 2 行目に折り返す */
+@media screen and (max-width: 370px) {
+  .toolbar__group { flex-wrap: wrap; }
+  .title {
+    order: 3;
+    flex: 1 0 100%;
+    margin: 2px 0 0;
+    font-size: 15px;
+  }
 }
 
 /* 縦向きのスマートフォン：月の面積を抑え、下の一覧を常に見えるようにする */
@@ -847,6 +1061,41 @@ hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
   .chip__title { overflow: visible; text-overflow: clip; }
   .chip__time { display: none; color: #333 !important; }
   .chip__dot { display: none; }
+
+  /* 週の時刻表示の印刷 */
+  .weekview { --gutter: 11mm; }
+  .weekview__head, .weekview__allday { border-color: #000; }
+  .weekview__allday { max-height: none; overflow: visible; min-height: 6mm; }
+  .weekview__body { overflow: visible; }
+  .wday { border-left: .5pt solid #666; padding: 1mm 0; }
+  .wday__name { font-size: 8pt; color: #000; }
+  .wday__num { font-size: 11pt; color: #000 !important; background: none !important; padding: 0 !important; }
+  .wday__holiday { font-size: 6.5pt; color: #333; }
+  .wallday { border-left: .5pt solid #666; }
+  .hours__label { font-size: 7pt; color: #333; }
+  .weekcol {
+    border-left: .5pt solid #666;
+    background-color: #fff !important;
+    background-image: repeating-linear-gradient(
+      to bottom, #999 0, #999 .3pt, transparent .3pt, transparent var(--hour-h));
+  }
+  .wevent {
+    background: #fff !important;
+    color: #000 !important;
+    border: .4pt solid #555;
+    border-radius: 0;
+    font-size: 7pt;
+    line-height: 1.15;
+  }
+  .wevent__time { font-size: 6.5pt; color: #333 !important; opacity: 1; }
+  .nowline { display: none; }
+  .print-color .wevent {
+    background: var(--chip-color) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-color .wevent__time { color: #fff !important; }
 
   /* 印刷オプション */
   .print-times .chip__time { display: inline; }

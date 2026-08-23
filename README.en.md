@@ -5,6 +5,7 @@
 A month-view calendar for keeping your events. It is plain HTML / CSS / JavaScript — no build step.
 
 - **Events** — add, edit and delete; all-day and multi-day events; repeats; location and notes; several calendars; colors
+- **Month view and week view with times** — selecting a day shows that week on a time grid
 - **Import from an iPhone calendar** — reads iCalendar (`.ics`) files, and can fetch a published calendar URL
 - **Printing** — prints the month you are viewing on a single A4 page (portrait / landscape, times, locations, black and white)
 - **Phones** — a layout made for iPhone and Android, swipe to change months, can be added to the home screen
@@ -51,6 +52,7 @@ Open the same URL on the phone; the layout follows the screen size.
 
 - The month grid shows events as **dots**, and the selected day's events are listed underneath
   (the same idea as the iPhone Calendar app)
+- Selecting a day switches to the week view with times; “Month” in the top right goes back
 - **Swipe left or right** on the calendar to move between months
 - Import / Export / Calendars / Print move into the **⋯** menu in the top right
 - Add an event with **+** in the top right, or “+ Add on this day” in the day list
@@ -62,15 +64,31 @@ Android Chrome: menu → “Install app”). A `manifest.json` and icons are inc
 
 Dragging an event to another day works with a mouse only. On a phone, open the event and change its date.
 
+## The week view with times
+
+**Selecting a day in the month view shows that week on a time grid.**
+
+- Events are laid out on a 0–24 hour axis; overlapping events are placed side by side
+- All-day and multi-day events go into the “All-day” row above the time grid
+- A red line marks the current time in the week that contains today; the view opens at the current
+  hour (or at 8:00 for other weeks)
+- **Clicking an empty slot opens the new-event dialog at that time** (rounded to 30 minutes).
+  Clicking an event opens it for editing
+- Clicking a weekday heading selects that day (the list on the right follows)
+- Move between weeks with `←` `→`, the ‹ › buttons, or a swipe
+- Switch views with **“Month | Week”** in the top right, or the `M` and `W` keys
+- Printing a week fits it on one page
+
 ## Entering events
 
 | Action | How |
 | --- | --- |
-| Add | the “+ New event” button, double-click a day cell (desktop), or the `N` key |
+| Add | the “+ New event” button, click an empty slot in the week view, or the `N` key |
 | Edit | click an event, or ✎ in the day list |
 | Delete | open the event and choose “Delete”, or 🗑 in the day list |
 | Change the date | drag an event onto another day (desktop only; not for repeating events) |
-| Change month | `←` `→` keys, the ‹ › buttons, the month picker, or a swipe |
+| Switch view | “Month \| Week” in the top right, the `M` / `W` keys, or select a day in the month view |
+| Move back and forth | `←` `→` keys, the ‹ › buttons, the month picker, or a swipe (one week at a time in the week view) |
 | Jump to today | the `T` key or the “Today” button |
 
 Repeats can be every day, every week, every 2 weeks, every month (same date or same weekday) or
@@ -123,7 +141,7 @@ the attachment on the iPhone to load it there.
 
 ## Printing
 
-“Print” prints the month you are viewing. You can choose the orientation (portrait / landscape),
+“Print” prints the month you are viewing — or that week, when the week view is open. You can choose the orientation (portrait / landscape),
 whether start times and locations are shown, and color or black and white. The page is sized to fit
 on one A4 sheet. To get the colors on paper, enable “Background graphics” in the printer settings.
 `Ctrl` / `⌘` + `P` prints the same layout.

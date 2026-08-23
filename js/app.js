@@ -6,6 +6,7 @@
   var t = I.t;
 
   var view = new Date();          /* 表示中の月（1日に正規化） */
+  var mode = 'month';             /* 'month'（月）または 'week'（週の時刻表示） */
   var selected = null;            /* 'YYYY-MM-DD' */
   var occMap = {};                /* 表示中の月の予定 */
   var editing = null;             /* 編集中の予定 id */
@@ -49,19 +50,48 @@
     return { start: start, weeks: weeks, end: S.addDays(start, weeks * 7 - 1) };
   }
 
+  /* 選択中の日を含む 1 週間 */
+  function weekRange() {
+    var base = S.toDate(selected || todayStr());
+    var offset = (base.getDay() - weekStart() + 7) % 7;
+    var start = S.addDays(S.startOfDay(base), -offset);
+    return { start: start, weeks: 1, end: S.addDays(start, 6) };
+  }
+
+  function currentTitle(range, short) {
+    if (mode !== 'week') return I.monthTitle(view);
+    return short ? I.weekTitleShort(range.start, range.end)
+                 : I.weekTitle(range.start, range.end);
+  }
+
   function render() {
-    var r = gridRange();
+    var r = mode === 'week' ? weekRange() : gridRange();
     occMap = S.occurrencesByDate(r.start, r.end);
 
-    var label = I.monthTitle(view);
-    $('title').textContent = label;
+    var label = currentTitle(r);
+    /* 狭い画面では短い表記にして、見出しが切れないようにする */
+    $('title').textContent = isPhone() ? currentTitle(r, true) : label;
     $('monthPicker').value = view.getFullYear() + '-' + pad(view.getMonth() + 1);
     document.title = label + ' | ' + t('app.name');
     $('printTitle').textContent = label;
     $('printMeta').textContent = t('prt.printedOn', { date: I.fullDate(new Date()) });
 
-    renderWeekdays();
-    renderGrid(r);
+    Array.prototype.forEach.call(document.querySelectorAll('.viewswitch__opt'), function (b) {
+      var on = b.getAttribute('data-view') === mode;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    $('monthView').hidden = mode !== 'month';
+    $('weekView').hidden = mode !== 'week';
+    /* 週表示では月の選択欄は使わないので隠す */
+    $('monthPicker').hidden = mode === 'week';
+
+    if (mode === 'week') {
+      renderWeek(r);
+    } else {
+      renderWeekdays();
+      renderGrid(r);
+    }
     renderSidebar();
     renderLegend();
   }
@@ -173,6 +203,164 @@
         cell.appendChild(more);
       }
     });
+  }
+
+  /* ---------- 週の時刻表示 ---------- */
+
+  var HOURS = 24;
+  var weekScrolled = false;
+
+  function renderWeek(r) {
+    var showHolidays = S.get().settings.holidays !== false;
+
+    /* 曜日と日付の見出し */
+    var head = $('weekHead');
+    head.innerHTML = '';
+    head.appendChild(el('div', 'weekview__gutter'));
+    for (var i = 0; i < 7; i++) {
+      var d = S.addDays(r.start, i);
+      var key = S.dateStr(d);
+      var cell = el('div', 'wday');
+      cell.dataset.date = key;
+      if (key === todayStr()) cell.classList.add('is-today');
+      if (key === selected) cell.classList.add('is-selected');
+      if (d.getDay() === 0) cell.classList.add('is-sun');
+      if (d.getDay() === 6) cell.classList.add('is-sat');
+      var hol = showHolidays ? holidayName(key) : null;
+      if (hol) cell.classList.add('is-holiday');
+      cell.appendChild(el('span', 'wday__name', wd(d.getDay())));
+      cell.appendChild(el('span', 'wday__num', String(d.getDate())));
+      if (hol) cell.appendChild(el('span', 'wday__holiday', hol));
+      head.appendChild(cell);
+    }
+
+    /* 終日・複数日にまたがる予定は上段にまとめる */
+    var allday = $('weekAllday');
+    allday.innerHTML = '';
+    var label = el('div', 'weekview__gutter weekview__gutter--allday', t('common.allDay'));
+    allday.appendChild(label);
+    for (var j = 0; j < 7; j++) {
+      var dayKey = S.dateStr(S.addDays(r.start, j));
+      var box = el('div', 'wallday');
+      box.dataset.date = dayKey;
+      (occMap[dayKey] || []).forEach(function (occ) {
+        if (!occ.allDay && !occ.multiDay) return;
+        box.appendChild(chip(occ));
+      });
+      allday.appendChild(box);
+    }
+
+    /* 時刻の目盛り */
+    var hours = $('weekHours');
+    hours.innerHTML = '';
+    for (var h = 0; h < HOURS; h++) {
+      var row = el('div', 'hours__row');
+      row.appendChild(el('span', 'hours__label', pad(h) + ':00'));
+      hours.appendChild(row);
+    }
+
+    /* 時間帯の予定 */
+    var cols = $('weekCols');
+    cols.innerHTML = '';
+    for (var k = 0; k < 7; k++) {
+      var day = S.addDays(r.start, k);
+      var dkey = S.dateStr(day);
+      var col = el('div', 'weekcol');
+      col.dataset.date = dkey;
+      if (dkey === todayStr()) col.classList.add('is-today');
+      if (dkey === selected) col.classList.add('is-selected');
+
+      layoutDay(occMap[dkey] || [], day).forEach(function (item) {
+        col.appendChild(timeBlock(item));
+      });
+
+      if (dkey === todayStr()) {
+        var now = new Date();
+        var line = el('div', 'nowline');
+        line.style.top = ((now.getHours() * 60 + now.getMinutes()) / (HOURS * 60) * 100) + '%';
+        col.appendChild(line);
+      }
+      cols.appendChild(col);
+    }
+
+    if (!weekScrolled) {
+      weekScrolled = true;
+      requestAnimationFrame(scrollWeekToUsefulHour);
+    }
+  }
+
+  /* その日の時間帯の予定を、重なりを避けて並べる */
+  function layoutDay(occs, day) {
+    var dayStart = S.startOfDay(day).getTime();
+    var items = [];
+    occs.forEach(function (occ) {
+      if (occ.allDay || occ.multiDay) return;
+      var from = Math.max(0, Math.round((occ.occStart.getTime() - dayStart) / 60000));
+      var to = Math.min(HOURS * 60, Math.round((occ.occEnd.getTime() - dayStart) / 60000));
+      if (to <= from) to = from + 30;   /* 開始と終了が同じ予定にも高さを与える */
+      items.push({ occ: occ, from: from, to: to });
+    });
+    items.sort(function (a, b) { return a.from - b.from || b.to - a.to; });
+
+    /* 重なり合うかたまりごとに、横に並べる本数を決める */
+    var group = [], groupEnd = -1;
+    var groups = [];
+    items.forEach(function (it) {
+      if (group.length && it.from >= groupEnd) { groups.push(group); group = []; groupEnd = -1; }
+      group.push(it);
+      groupEnd = Math.max(groupEnd, it.to);
+    });
+    if (group.length) groups.push(group);
+
+    groups.forEach(function (g) {
+      var ends = [];
+      g.forEach(function (it) {
+        var placed = false;
+        for (var i = 0; i < ends.length; i++) {
+          if (ends[i] <= it.from) { it.col = i; ends[i] = it.to; placed = true; break; }
+        }
+        if (!placed) { it.col = ends.length; ends.push(it.to); }
+      });
+      g.forEach(function (it) {
+        it.width = 100 / ends.length;
+        it.left = it.col * it.width;
+      });
+    });
+    return items;
+  }
+
+  function timeBlock(item) {
+    var occ = item.occ;
+    var b = el('div', 'wevent');
+    b.dataset.eventId = occ.event.id;
+    b.dataset.occStart = occ.occStartLocal;
+    b.style.setProperty('--chip-color', occ.color);
+    b.style.top = (item.from / (HOURS * 60) * 100) + '%';
+    b.style.height = ((item.to - item.from) / (HOURS * 60) * 100) + '%';
+    b.style.left = item.left + '%';
+    b.style.width = item.width + '%';
+    if (item.to - item.from <= 45) b.classList.add('wevent--short');
+    b.appendChild(el('span', 'wevent__time',
+      timeLabel(occ.occStart) + '–' + timeLabel(occ.occEnd)));
+    b.appendChild(el('span', 'wevent__title', occ.event.title));
+    if (occ.event.location) b.appendChild(el('span', 'wevent__loc', occ.event.location));
+    b.title = tooltip(occ);
+    return b;
+  }
+
+  /* 今の時刻（今週でなければ 8 時）が見えるところまで巻き戻す */
+  function scrollWeekToUsefulHour() {
+    var body = $('weekBody');
+    if (!body || $('weekView').hidden) return;
+    var cols = $('weekCols');
+    var perHour = cols.scrollHeight / HOURS;
+    var hour = 8;
+    var today = todayStr();
+    var inWeek = Array.prototype.some.call(document.querySelectorAll('.weekcol'), function (c) {
+      return c.dataset.date === today;
+    });
+    if (inWeek) hour = Math.max(0, new Date().getHours() - 1);
+    body.scrollTop = Math.max(0, perHour * hour - 8);
   }
 
   /* ---------- サイドバー ---------- */
@@ -364,7 +552,7 @@
     });
   }
 
-  function openEvent(id, occStart) {
+  function openEvent(id, occStart, preset) {
     var dlg = $('eventDialog');
     var ev = id ? S.eventById(id) : null;
     editing = ev ? ev.id : null;
@@ -381,6 +569,12 @@
       startLocal = occ;
       endLocal = new Date(occ.getFullYear(), occ.getMonth(), occ.getDate() + span,
         baseEnd.getHours(), baseEnd.getMinutes());
+    } else if (preset) {
+      /* 週表示で時間帯を押したとき */
+      var pd = S.toDate(preset.date);
+      startLocal = new Date(pd.getFullYear(), pd.getMonth(), pd.getDate(),
+        Math.floor(preset.minutes / 60), preset.minutes % 60);
+      endLocal = new Date(startLocal.getTime() + 60 * 60 * 1000);
     } else {
       var base = selected ? S.toDate(selected) : new Date();
       var now = new Date();
@@ -821,9 +1015,13 @@
     /* 1 ページに収まるようグリッドの高さを用紙に合わせて指定する
      * （vh の解釈はブラウザ差があるため mm で固定する） */
     var gridHeight = orient === 'portrait' ? '252mm' : '167mm';
+    var hourHeight = orient === 'portrait' ? '9.8mm' : '6.4mm';
     printStyle.textContent =
       '@page { size: A4 ' + orient + '; margin: 8mm; }\n' +
-      '@media print { .grid { height: ' + gridHeight + '; } }';
+      '@media print {\n' +
+      '  .grid { height: ' + gridHeight + '; }\n' +
+      '  .weekview { --hour-h: ' + hourHeight + '; }\n' +
+      '}';
   }
 
   function doPrint() {
@@ -835,14 +1033,41 @@
   /* ---------- 操作 ---------- */
 
   function move(delta) {
-    view = new Date(view.getFullYear(), view.getMonth() + delta, 1);
+    if (mode === 'week') {
+      var d = S.addDays(S.toDate(selected || todayStr()), delta * 7);
+      selected = S.dateStr(d);
+      view = new Date(d.getFullYear(), d.getMonth(), 1);
+    } else {
+      view = new Date(view.getFullYear(), view.getMonth() + delta, 1);
+      clampSelected();
+    }
+    render();
+  }
+
+  /* 月を移動したら、選択日もその月に合わせる */
+  function clampSelected() {
+    if (!selected) return;
+    var d = S.toDate(selected);
+    if (d.getFullYear() === view.getFullYear() && d.getMonth() === view.getMonth()) return;
+    var today = new Date();
+    selected = (today.getFullYear() === view.getFullYear() && today.getMonth() === view.getMonth())
+      ? todayStr()
+      : S.dateStr(new Date(view.getFullYear(), view.getMonth(), 1));
+  }
+
+  function setMode(next, keepScroll) {
+    if (mode === next) return;
+    mode = next;
+    S.get().settings.view = next;
+    S.save();
+    if (!keepScroll) weekScrolled = false;
     render();
   }
 
   function selectDate(key) {
     selected = key;
-    Array.prototype.forEach.call(document.querySelectorAll('.cell'), function (c) {
-      c.classList.toggle('is-selected', c.dataset.date === key);
+    Array.prototype.forEach.call(document.querySelectorAll('.cell, .wday, .weekcol'), function (c) {
+      if (c.dataset.date) c.classList.toggle('is-selected', c.dataset.date === key);
     });
     renderSidebar();
     if (isPhone()) $('sidebar').scrollTop = 0;
@@ -872,6 +1097,7 @@
     $('todayBtn').addEventListener('click', function () {
       view = new Date();
       selected = todayStr();
+      weekScrolled = false;
       render();
     });
     $('monthPicker').addEventListener('change', function (e) {
@@ -890,7 +1116,9 @@
     $('exportBtn').addEventListener('click', exportIcs);
     $('calsBtn').addEventListener('click', openCals);
     $('printBtn').addEventListener('click', function () {
-      $('printDesc').textContent = t('prt.desc', { month: I.monthTitle(view) });
+      $('printDesc').textContent = t('prt.desc', {
+        month: currentTitle(mode === 'week' ? weekRange() : gridRange())
+      });
       $('printDialog').showModal();
     });
 
@@ -900,17 +1128,16 @@
       var chipEl = e.target.closest('.chip');
       var cell = e.target.closest('.cell');
       if (!cell) return;
-      selectDate(cell.dataset.date);
-      /* スマートフォンでは予定が点表示なので、下の一覧から開いてもらう */
-      if (chipEl && !isPhone()) openEvent(chipEl.dataset.eventId, chipEl.dataset.occStart);
-    });
-    grid.addEventListener('dblclick', function (e) {
-      /* スマートフォンのダブルタップは拡大や誤操作になりやすいので使わない */
-      if (isPhone()) return;
-      var cell = e.target.closest('.cell');
-      if (!cell || e.target.closest('.chip')) return;
       selected = cell.dataset.date;
-      openEvent(null);
+      if (chipEl && !isPhone()) {
+        /* 予定そのものを押したときは、その予定を開く */
+        selectDate(cell.dataset.date);
+        openEvent(chipEl.dataset.eventId, chipEl.dataset.occStart);
+        return;
+      }
+      /* 日を選んだら、その週を時刻付きで表示する */
+      weekScrolled = false;
+      setMode('week', true);
     });
     grid.addEventListener('dragstart', function (e) {
       var chipEl = e.target.closest('.chip');
@@ -944,6 +1171,38 @@
       cell.classList.remove('is-over');
       var id = e.dataTransfer.getData('text/plain');
       if (id) moveEventToDate(id, cell.dataset.date);
+    });
+
+    /* 表示の切り替え（月 / 週） */
+    $('viewSwitch').addEventListener('click', function (e) {
+      var b = e.target.closest('.viewswitch__opt');
+      if (b) setMode(b.getAttribute('data-view'));
+    });
+
+    /* 週表示：見出しの日を押すと選択、予定を押すと編集、空いている時間帯を押すと追加 */
+    $('weekHead').addEventListener('click', function (e) {
+      var d = e.target.closest('.wday');
+      if (d) selectDate(d.dataset.date);
+    });
+    $('weekAllday').addEventListener('click', function (e) {
+      var chipEl = e.target.closest('.chip');
+      var box = e.target.closest('.wallday');
+      if (!box) return;
+      selectDate(box.dataset.date);
+      if (chipEl) openEvent(chipEl.dataset.eventId, chipEl.dataset.occStart);
+      else openEvent(null, null, { date: box.dataset.date, minutes: 9 * 60 });
+    });
+    $('weekCols').addEventListener('click', function (e) {
+      var block = e.target.closest('.wevent');
+      var col = e.target.closest('.weekcol');
+      if (!col) return;
+      selectDate(col.dataset.date);
+      if (block) { openEvent(block.dataset.eventId, block.dataset.occStart); return; }
+      var rect = col.getBoundingClientRect();
+      var ratio = (e.clientY - rect.top) / rect.height;
+      var minutes = Math.round(ratio * HOURS * 60 / 30) * 30;
+      minutes = Math.max(0, Math.min((HOURS - 1) * 60 + 30, minutes));
+      openEvent(null, null, { date: col.dataset.date, minutes: minutes });
     });
 
     /* 予定ダイアログ */
@@ -1040,6 +1299,8 @@
       else if (e.key === 'ArrowRight') { move(1); }
       else if (e.key === 't' || e.key === 'T') { view = new Date(); selected = todayStr(); render(); }
       else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openEvent(null); }
+      else if (e.key === 'w' || e.key === 'W') { setMode('week'); }
+      else if (e.key === 'm' || e.key === 'M') { setMode('month'); }
     });
 
     /* 「⋯」メニュー（スマートフォン） */
@@ -1055,17 +1316,22 @@
       if (e.key === 'Escape') toggleMenu(false);
     });
 
-    /* 横スワイプで月を移動（スマートフォン・タブレット） */
-    bindSwipe(document.querySelector('.calendar'));
+    /* 横スワイプで前後へ（月表示なら月、週表示なら週） */
+    bindSwipe($('monthView'));
+    bindSwipe($('weekView'));
 
     window.addEventListener('resize', function () { requestAnimationFrame(markOverflow); });
     window.addEventListener('orientationchange', function () {
       setTimeout(function () { requestAnimationFrame(markOverflow); }, 250);
     });
+    window.addEventListener('beforeprint', function () {
+      if (mode === 'week') $('weekBody').scrollTop = 0;
+    });
   }
 
   S.load();
   selected = todayStr();
+  mode = S.get().settings.view === 'week' ? 'week' : 'month';
   var startLang = langFromQuery() || S.get().settings.lang || 'ja';
   I.setLang(startLang);
   I.applyStatic();

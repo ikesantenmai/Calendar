@@ -16,7 +16,10 @@
       visible: true, source: 'local', isDefault: true
     }],
     events: [],
-    settings: { holidays: true, weekStartMonday: false, defaultCalendar: 'local', lang: 'ja' }
+    settings: {
+      holidays: true, weekStartMonday: false, defaultCalendar: 'local',
+      lang: 'ja', view: 'month'
+    }
   };
 
   var state = null;

@@ -5,12 +5,17 @@
   var DICT = {
     ja: {
       'app.name': 'カレンダー',
-      'nav.prev': '前の月',
-      'nav.next': '次の月',
+      'nav.prev': '前へ',
+      'nav.next': '次へ',
       'nav.today': '今日',
       'nav.month': '月を選択',
-      'nav.prevTitle': '前の月 (←)',
+      'nav.prevTitle': '前へ (←)',
       'nav.nextTitle': '今日 (T)',
+      'view.group': '表示の切り替え',
+      'view.month': '月',
+      'view.week': '週',
+      'view.monthTitle': '月表示 (M)',
+      'view.weekTitle': '週の時刻表示 (W)',
 
       'btn.add': '＋',
       'btn.addLabel': ' 予定を追加',
@@ -123,7 +128,7 @@
       'cal.visible': '表示',
 
       'prt.title': '印刷',
-      'prt.desc': '表示中の月（{month}）を 1 ページに印刷します。',
+      'prt.desc': '表示中の {month} を 1 ページに印刷します。',
       'prt.orient': '用紙の向き',
       'prt.landscape': '横',
       'prt.portrait': '縦',
@@ -159,12 +164,17 @@
 
     en: {
       'app.name': 'Calendar',
-      'nav.prev': 'Previous month',
-      'nav.next': 'Next month',
+      'nav.prev': 'Previous',
+      'nav.next': 'Next',
       'nav.today': 'Today',
       'nav.month': 'Choose month',
-      'nav.prevTitle': 'Previous month (←)',
+      'nav.prevTitle': 'Previous (←)',
       'nav.nextTitle': 'Today (T)',
+      'view.group': 'Switch view',
+      'view.month': 'Month',
+      'view.week': 'Week',
+      'view.monthTitle': 'Month view (M)',
+      'view.weekTitle': 'Week view with times (W)',
 
       'btn.add': '+',
       'btn.addLabel': ' New event',
@@ -277,7 +287,7 @@
       'cal.visible': 'Show',
 
       'prt.title': 'Print',
-      'prt.desc': 'Prints the month you are viewing ({month}) on one page.',
+      'prt.desc': 'Prints the current view ({month}) on one page.',
       'prt.orient': 'Orientation',
       'prt.landscape': 'Landscape',
       'prt.portrait': 'Portrait',
@@ -361,6 +371,39 @@
 
   /* ---- 言語ごとの日付表記 ---- */
 
+  /* 週の見出し（2026年8月23日〜29日 / Aug 23 – 29, 2026） */
+  function weekTitle(start, end) {
+    if (lang === 'ja') {
+      var head = start.getFullYear() + '年' + (start.getMonth() + 1) + '月' + start.getDate() + '日';
+      var tail = (start.getMonth() === end.getMonth())
+        ? end.getDate() + '日'
+        : (end.getMonth() + 1) + '月' + end.getDate() + '日';
+      return head + '〜' + tail;
+    }
+    var opt = { month: 'short', day: 'numeric' };
+    var a = start.toLocaleDateString(locale(), opt);
+    var b = (start.getMonth() === end.getMonth())
+      ? String(end.getDate())
+      : end.toLocaleDateString(locale(), opt);
+    return a + ' – ' + b + ', ' + end.getFullYear();
+  }
+
+  /* 幅の狭い画面向けの短い週見出し（8/16〜22 / Aug 16 – 22） */
+  function weekTitleShort(start, end) {
+    if (lang === 'ja') {
+      var head = (start.getMonth() + 1) + '/' + start.getDate();
+      var tail = (start.getMonth() === end.getMonth())
+        ? String(end.getDate())
+        : (end.getMonth() + 1) + '/' + end.getDate();
+      return head + '〜' + tail;
+    }
+    var a = start.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
+    var b = (start.getMonth() === end.getMonth())
+      ? String(end.getDate())
+      : end.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
+    return a + ' – ' + b;
+  }
+
   function monthTitle(date) {
     if (lang === 'ja') return date.getFullYear() + '年' + (date.getMonth() + 1) + '月';
     return date.toLocaleDateString(locale(), { year: 'numeric', month: 'long' });
@@ -391,6 +434,8 @@
     locale: locale,
     applyStatic: applyStatic,
     monthTitle: monthTitle,
+    weekTitle: weekTitle,
+    weekTitleShort: weekTitleShort,
     dayTitle: dayTitle,
     shortDate: shortDate,
     fullDate: fullDate,
