@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>カレンダー</title>
+<meta name="description" content="予定を入力・管理できるカレンダー。iPhone のカレンダー（.ics）のインポートと月間カレンダーの印刷に対応。">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="toolbar no-print">
+    <div class="toolbar__group">
+      <div class="navcluster">
+        <button id="prevBtn" class="iconbtn" title="前の月 (←)" aria-label="前の月">‹</button>
+        <button id="todayBtn" class="btn" title="今日 (T)">今日</button>
+        <button id="nextBtn" class="iconbtn" title="次の月 (→)" aria-label="次の月">›</button>
+      </div>
+      <h1 id="title" class="title">&nbsp;</h1>
+      <input type="month" id="monthPicker" class="monthpicker" aria-label="月を選択">
+    </div>
+
+    <div class="toolbar__group toolbar__group--end">
+      <button id="addBtn" class="btn btn--primary" title="予定を追加 (N)">＋ 予定を追加</button>
+      <button id="importBtn" class="btn">インポート</button>
+      <button id="exportBtn" class="btn">書き出し</button>
+      <button id="calsBtn" class="btn">カレンダー</button>
+      <button id="printBtn" class="btn" title="印刷 (Ctrl/⌘+P)">印刷</button>
+    </div>
+  </header>
+
+  <!-- 印刷時のみ表示されるヘッダー -->
+  <div class="printhead" aria-hidden="true">
+    <div class="printhead__title" id="printTitle"></div>
+    <div class="printhead__meta" id="printMeta"></div>
+  </div>
+
+  <main class="layout">
+    <section class="calendar" aria-label="月間カレンダー">
+      <div class="weekdays" id="weekdays"></div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <aside class="sidebar no-print" id="sidebar">
+      <div class="sidebar__head">
+        <h2 id="sidebarDate">—</h2>
+        <button id="sidebarAdd" class="btn btn--small btn--primary">＋ この日に追加</button>
+      </div>
+      <div id="sidebarHoliday" class="sidebar__holiday" hidden></div>
+      <ul id="sidebarList" class="daylist"></ul>
+      <p id="sidebarEmpty" class="muted">予定はありません。</p>
+
+      <div class="sidebar__cals">
+        <h3>カレンダー</h3>
+        <ul id="calLegend" class="callegend"></ul>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="statusbar no-print">
+    <span id="status" class="muted"></span>
+    <span class="muted">データはこのブラウザ内（localStorage）に保存されます</span>
+  </footer>
+</div>
+
+<!-- ========== 予定ダイアログ ========== -->
+<dialog id="eventDialog" class="dialog">
+  <form method="dialog" id="eventForm" class="dialog__body">
+    <header class="dialog__head">
+      <h2 id="eventDialogTitle">予定を追加</h2>
+      <button type="button" class="iconbtn" data-close aria-label="閉じる">✕</button>
+    </header>
+
+    <div class="field">
+      <label for="evTitle">タイトル</label>
+      <input id="evTitle" name="title" type="text" required maxlength="200" placeholder="例）打ち合わせ" autocomplete="off">
+    </div>
+
+    <div class="field field--row">
+      <label class="check"><input type="checkbox" id="evAllDay"> 終日</label>
+      <label class="check"><input type="checkbox" id="evRepeatToggle"> 繰り返し</label>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="evStartDate">開始</label>
+        <div class="inline">
+          <input id="evStartDate" type="date" required>
+          <input id="evStartTime" type="time" step="300">
+        </div>
+      </div>
+      <div class="field">
+        <label for="evEndDate">終了</label>
+        <div class="inline">
+          <input id="evEndDate" type="date" required>
+          <input id="evEndTime" type="time" step="300">
+        </div>
+      </div>
+    </div>
+
+    <div class="field" id="evRepeatRow" hidden>
+      <label for="evRepeat">繰り返し設定</label>
+      <div class="inline">
+        <select id="evRepeat">
+          <option value="">なし</option>
+          <option value="FREQ=DAILY">毎日</option>
+          <option value="FREQ=WEEKLY">毎週</option>
+          <option value="FREQ=WEEKLY;INTERVAL=2">隔週</option>
+          <option value="FREQ=MONTHLY">毎月（同じ日）</option>
+          <option value="FREQ=MONTHLY;BYDAY=">毎月（同じ曜日）</option>
+          <option value="FREQ=YEARLY">毎年</option>
+        </select>
+        <label class="inline inline--tight">終了日
+          <input id="evRepeatUntil" type="date">
+        </label>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="evCalendar">カレンダー</label>
+        <select id="evCalendar"></select>
+      </div>
+      <div class="field">
+        <label for="evColor">色</label>
+        <div class="swatches" id="evColor"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="evLocation">場所</label>
+      <input id="evLocation" type="text" maxlength="200" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="evNotes">メモ</label>
+      <textarea id="evNotes" rows="3" maxlength="2000"></textarea>
+    </div>
+
+    <p class="error" id="evError" hidden></p>
+
+    <footer class="dialog__foot">
+      <button type="button" id="evDelete" class="btn btn--danger" hidden>削除</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>キャンセル</button>
+      <button type="submit" class="btn btn--primary">保存</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- ========== インポートダイアログ ========== -->
+<dialog id="importDialog" class="dialog">
+  <div class="dialog__body">
+    <header class="dialog__head">
+      <h2>カレンダーをインポート</h2>
+      <button type="button" class="iconbtn" data-close aria-label="閉じる">✕</button>
+    </header>
+
+    <div id="dropzone" class="dropzone" tabindex="0" role="button"
+         aria-label="ICS ファイルを選択またはドロップ">
+      <strong>.ics ファイルをここにドロップ</strong>
+      <span class="muted">またはクリックしてファイルを選択（複数可）</span>
+      <input type="file" id="fileInput" accept=".ics,.ical,.ifb,text/calendar" multiple hidden>
+    </div>
+
+    <details class="howto">
+      <summary>iPhone のカレンダーを書き出す方法</summary>
+      <ol>
+        <li><strong>iCloud から（おすすめ・全予定）</strong><br>
+          iPhone の「設定 → Apple ID → iCloud → カレンダー」をオンにし、パソコンの
+          <em>Mac のカレンダー.app</em> で「ファイル → 書き出す → 書き出す…」から <code>.ics</code> を保存します。</li>
+        <li><strong>iPhone だけで（共有カレンダー）</strong><br>
+          カレンダー App → 「カレンダー」→ 対象カレンダーの ⓘ → 「公開カレンダー」をオン → URL をコピー。
+          その URL の <code>webcal://</code> を <code>https://</code> に変えてブラウザで開くと <code>.ics</code> が保存できます。
+          下の「URL から読み込む」に貼り付けても構いません。</li>
+        <li><strong>1 件だけ</strong><br>
+          予定を開く → 共有ボタン →「メールで送信」等。添付の <code>.ics</code> をこの画面にドロップします。</li>
+      </ol>
+    </details>
+
+    <div class="field">
+      <label for="urlInput">URL から読み込む（webcal:// / https:// の公開カレンダー）</label>
+      <div class="inline">
+        <input id="urlInput" type="url" placeholder="webcal://p01-calendars.icloud.com/published/…">
+        <button type="button" id="urlLoad" class="btn">読み込む</button>
+      </div>
+      <p class="muted small">配信元が許可していない場合はブラウザの制限（CORS）で取得できません。その場合はファイルを保存してドロップしてください。</p>
+    </div>
+
+    <div id="importPreview" hidden>
+      <h3 class="subhead">読み込み内容</h3>
+      <ul id="importSummary" class="summary"></ul>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="importName">カレンダー名</label>
+          <input id="importName" type="text" maxlength="80">
+        </div>
+        <div class="field">
+          <label>色</label>
+          <div class="swatches" id="importColor"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="importTarget">取り込み先</label>
+        <select id="importTarget"></select>
+      </div>
+
+      <label class="check"><input type="checkbox" id="importDedupe" checked> 同じ予定（UID）が既にある場合は上書きする</label>
+    </div>
+
+    <p class="error" id="importError" hidden></p>
+
+    <footer class="dialog__foot">
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>閉じる</button>
+      <button type="button" id="importCommit" class="btn btn--primary" disabled>取り込む</button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- ========== カレンダー管理ダイアログ ========== -->
+<dialog id="calsDialog" class="dialog">
+  <div class="dialog__body">
+    <header class="dialog__head">
+      <h2>カレンダー</h2>
+      <button type="button" class="iconbtn" data-close aria-label="閉じる">✕</button>
+    </header>
+    <ul id="calsList" class="cals"></ul>
+    <div class="inline">
+      <input id="newCalName" type="text" placeholder="新しいカレンダー名" maxlength="80">
+      <button type="button" id="newCalAdd" class="btn">追加</button>
+    </div>
+    <hr>
+    <label class="check"><input type="checkbox" id="optHolidays" checked> 日本の祝日を表示する</label>
+    <label class="check"><input type="checkbox" id="optWeekStart"> 週の開始を月曜にする</label>
+    <hr>
+    <div class="inline">
+      <button type="button" id="wipeBtn" class="btn btn--danger">すべてのデータを削除</button>
+    </div>
+    <footer class="dialog__foot">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn--primary" data-close>閉じる</button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- ========== 印刷ダイアログ ========== -->
+<dialog id="printDialog" class="dialog">
+  <div class="dialog__body">
+    <header class="dialog__head">
+      <h2>印刷</h2>
+      <button type="button" class="iconbtn" data-close aria-label="閉じる">✕</button>
+    </header>
+    <p class="muted">表示中の月（<span id="printMonthLabel"></span>）を 1 ページに印刷します。</p>
+
+    <div class="field">
+      <label>用紙の向き</label>
+      <div class="segmented" id="printOrient">
+        <label><input type="radio" name="orient" value="landscape" checked> 横</label>
+        <label><input type="radio" name="orient" value="portrait"> 縦</label>
+      </div>
+    </div>
+
+    <label class="check"><input type="checkbox" id="printTimes" checked> 開始時刻を表示する</label>
+    <label class="check"><input type="checkbox" id="printLocation"> 場所を表示する</label>
+    <label class="check"><input type="checkbox" id="printColors" checked> 予定の色を印刷する</label>
+    <label class="check"><input type="checkbox" id="printMono"> 白黒（枠線のみ）で印刷する</label>
+
+    <p class="muted small">プリンタの設定で「背景のグラフィック」を有効にすると色が印刷されます。</p>
+
+    <footer class="dialog__foot">
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>キャンセル</button>
+      <button type="button" id="printGo" class="btn btn--primary">印刷する</button>
+    </footer>
+  </div>
+</dialog>
+
+<script src="js/holidays.js"></script>
+<script src="js/ics.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
