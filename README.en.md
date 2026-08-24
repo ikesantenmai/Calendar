@@ -136,8 +136,17 @@ Supported iCalendar pieces: `VEVENT`, `DTSTART` / `DTEND` / `DURATION`, `VALUE=D
 date-times with `TZID` and in UTC, `SUMMARY` / `LOCATION` / `DESCRIPTION`, `RRULE`, `EXDATE`,
 folded lines and escaped characters. `VALARM` (alerts) is skipped.
 
-“Export” saves the events of the visible calendars as an `.ics` file. Mail it to yourself and open
-the attachment on the iPhone to load it there.
+### Export
+
+“Export” **downloads** the events of the visible calendars as an `.ics` file. On iPhone and iPad it
+lands in the Downloads folder of the Files app.
+
+- When the app is opened from the Home Screen, Safari cannot download, so the share sheet opens
+  instead (choose “Save to Files”)
+- If the download cannot be saved, use **“Export via the share sheet”** in the “Calendars” dialog
+  (shown only on devices that support it)
+- Mail the saved `.ics` to yourself and open the attachment on the iPhone to load it into Apple
+  Calendar
 
 ## Printing
 

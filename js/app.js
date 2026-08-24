@@ -915,27 +915,85 @@
 
   /* ---------- 書き出し ---------- */
 
-  function exportIcs() {
+  function exportIcs(viaShare) {
     var st = S.get();
     var vis = {};
     st.calendars.forEach(function (c) { vis[c.id] = c.visible !== false; });
     var events = st.events.filter(function (e) { return vis[e.calendarId] !== false; });
     if (!events.length) { setStatus(t('msg.nothingToExport')); return; }
+
     var text = ICSLib.build(events, t('cal.exportName'));
-    var blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+    var filename = 'calendar-' + S.dateStr(new Date()) + '.ics';
+
+    /* ダウンロードで保存する。
+     * ホーム画面から起動した状態など、ダウンロードができない環境だけ共有に切り替える。 */
+    var canDownload = 'download' in document.createElement('a') && !isStandalone();
+    if (!viaShare && canDownload) {
+      downloadFile(text, filename, events.length);
+      return;
+    }
+
+    var file = makeIcsFile(text, filename);
+    if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename })
+        .then(function () { setStatus(t('msg.exportShared')); })
+        .catch(function (err) {
+          if (err && err.name === 'AbortError') { setStatus(''); return; }
+          downloadFile(text, filename, events.length);
+        });
+      return;
+    }
+
+    downloadFile(text, filename, events.length);
+  }
+
+  function makeIcsFile(text, filename) {
+    try {
+      return new File([text], filename, { type: 'text/calendar' });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* ホーム画面から開いた状態（この状態の Safari はダウンロードできない） */
+  function isStandalone() {
+    return window.navigator.standalone === true ||
+      !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  }
+
+  /* 共有が使えるかどうか（使えない端末では、共有ボタンを出さない） */
+  function canShareIcs() {
+    var probe = makeIcsFile('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', 'probe.ics');
+    return !!(probe && navigator.share && navigator.canShare &&
+      navigator.canShare({ files: [probe] }));
+  }
+
+  function downloadFile(text, filename, count) {
+    /* text/calendar のままだと Safari が購読画面を開いてしまうので、
+     * ダウンロードとして扱われる型で渡す */
+    var blob = new Blob([text], { type: 'application/octet-stream' });
+    var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'calendar-' + S.dateStr(new Date()) + '.ics';
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    setStatus(t('msg.exported', { n: events.length }));
+    /* 端末によっては保存が始まるまで少し時間がかかるため、片付けは遅らせる */
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      if (a.parentNode) a.remove();
+    }, 60000);
+    setStatus(t('msg.exported', { n: count }));
   }
 
   /* ---------- カレンダー管理 ---------- */
 
   function openCals() {
     renderCalsList();
+    /* 共有が使える端末（iPhone など）にだけ、共有からの書き出しを出す */
+    $('shareRow').hidden = !canShareIcs();
     $('langSelect').value = I.getLang();
     $('optHolidays').checked = S.get().settings.holidays !== false;
     $('optWeekStart').checked = !!S.get().settings.weekStartMonday;
@@ -1113,7 +1171,8 @@
       openEvent(null);
     });
     $('importBtn').addEventListener('click', openImport);
-    $('exportBtn').addEventListener('click', exportIcs);
+    $('exportBtn').addEventListener('click', function () { exportIcs(false); });
+    $('shareBtn').addEventListener('click', function () { exportIcs(true); });
     $('calsBtn').addEventListener('click', openCals);
     $('printBtn').addEventListener('click', function () {
       $('printDesc').textContent = t('prt.desc', {
